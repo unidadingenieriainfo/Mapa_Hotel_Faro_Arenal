@@ -64,7 +64,9 @@ async function loadMap(mapId) {
   const { map, error: mapError } = await fetchMap(mapId);
   if (mapError || !map) {
     hideLoader();
-    showToast('No se pudo cargar el mapa. Verifica la configuración.', 'error');
+    const msg = mapError?.message ?? 'Mapa no encontrado';
+    console.error('[app] Error cargando mapa:', msg);
+    showToast(`No se pudo cargar el mapa: ${msg}`, 'error');
     return;
   }
 
@@ -209,7 +211,17 @@ function onMapAreaClick(xPercent, yPercent) {
 }
 
 async function handleCreatePoint() {
-  if (!_currentMap || !_pendingCoords) return;
+  const errorEl = document.getElementById('cp-error');
+
+  if (!_currentMap) {
+    errorEl.textContent = 'Error: mapa no cargado. Recarga la página.';
+    console.error('[app] handleCreatePoint: _currentMap es null');
+    return;
+  }
+  if (!_pendingCoords) {
+    errorEl.textContent = 'Haz clic en el mapa primero para ubicar el punto.';
+    return;
+  }
 
   const name    = document.getElementById('cp-name').value.trim();
   const cabinet = document.getElementById('cp-cabinet').value.trim();
@@ -218,8 +230,6 @@ async function handleCreatePoint() {
   const rssi    = parseInt(document.getElementById('cp-rssi').value);
   const notes   = document.getElementById('cp-notes').value.trim();
   const photoFile = document.getElementById('cp-photo').files?.[0];
-
-  const errorEl = document.getElementById('cp-error');
 
   if (!name) { errorEl.textContent = 'El nombre es obligatorio.'; return; }
   if (isNaN(rssi) || rssi < -100 || rssi > 0) {
@@ -245,9 +255,11 @@ async function handleCreatePoint() {
   });
 
   if (error) {
-    errorEl.textContent = 'Error al guardar el punto. Intenta de nuevo.';
+    const msg = error?.message ?? JSON.stringify(error);
+    console.error('[app] Error al crear punto:', msg);
+    errorEl.textContent = `Error al guardar: ${msg}`;
     btn.disabled    = false;
-    btn.textContent = 'Crear Punto';
+    btn.textContent = '📍 Guardar punto';
     return;
   }
 
@@ -260,7 +272,10 @@ async function handleCreatePoint() {
       const { url, path, error: storageError } = await uploadPhoto(
         photoFile, _currentMap.id, point.id
       );
-      if (!storageError && url) {
+      if (storageError) {
+        console.warn('[app] Error al subir foto:', storageError.message);
+        showToast('Punto creado, pero falló la subida de foto.', 'warning');
+      } else if (url) {
         await updatePoint(point.id, { photo_url: url, photo_path: path });
         point.photo_url  = url;
         point.photo_path = path;
@@ -276,10 +291,10 @@ async function handleCreatePoint() {
 
   closeCreatePointModal();
   btn.disabled    = false;
-  btn.textContent = 'Crear Punto';
+  btn.textContent = '📍 Guardar punto';
   _pendingCoords  = null;
 
-  showToast(`Punto "${point.name}" creado correctamente.`, 'success');
+  showToast(`✅ Punto "${point.name}" creado correctamente.`, 'success');
 }
 
 // ─────────────────────────────────────────────────────────────
