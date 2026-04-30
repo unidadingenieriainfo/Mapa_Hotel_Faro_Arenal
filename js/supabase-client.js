@@ -15,3 +15,5 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
     detectSessionInUrl: true,
   },
 });
+
+console.log('[supabase-client] Cliente Supabase inicializado:', SUPABASE_URL);
