@@ -234,17 +234,18 @@ body {
 
 /* MAPA */
 #map-area {
-  flex:         1;
-  overflow:     auto;
-  display:      flex;
-  align-items:  flex-start;
-  justify-content: center;
+  flex:            1;
+  overflow:        auto;
+  display:         flex;
+  align-items:     stretch;
+  justify-content: stretch;
 }
 
 #map-container {
   position:     relative;
-  display:      inline-block;
-  max-width:    100%;
+  display:      block;
+  width:        100%;
+  min-height:   100%;
   cursor:       default;
   border-radius: var(--radius-md);
   overflow:     hidden;
@@ -262,9 +263,8 @@ body {
 
 #map-image {
   display:    block;
-  max-width:  100%;
+  width:      100%;
   height:     auto;
-  min-width:  900px;
   pointer-events: none;
 }
 
