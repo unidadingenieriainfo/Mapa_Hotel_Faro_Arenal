@@ -1,0 +1,18 @@
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.log
+
+# Editor
+.vscode/
+.idea/
+
+# Dependencias
+node_modules/
+
+# Variables sensibles
+.env
+.env.local
