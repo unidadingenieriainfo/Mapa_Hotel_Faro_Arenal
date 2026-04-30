@@ -234,37 +234,34 @@ body {
 
 /* MAPA */
 #map-area {
-  flex:            1;
-  overflow:        auto;
-  display:         flex;
-  align-items:     stretch;
-  justify-content: stretch;
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
 #map-container {
-  position:     relative;
-  display:      block;
-  width:        100%;
-  min-height:   100%;
-  cursor:       default;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: auto;
+  align-self: flex-start;
+  cursor: default;
   border-radius: var(--radius-md);
-  overflow:     hidden;
-  box-shadow:   var(--card-shadow);
-  border:       3px solid var(--teal-50);
-  background:   white;
-  user-select:  none;
-}
-
-#map-container.edit-mode {
-  cursor:       crosshair;
-  border-color: #f59e0b;
-  box-shadow:   0 0 0 3px #f59e0b, var(--card-shadow);
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+  border: 3px solid var(--teal-50);
+  background: white;
+  user-select: none;
 }
 
 #map-image {
-  display:    block;
-  width:      100%;
-  height:     auto;
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
   pointer-events: none;
 }
 
