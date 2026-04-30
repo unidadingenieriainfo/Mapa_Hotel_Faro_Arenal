@@ -11,3 +11,6 @@ export const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 
 // ID del mapa principal en la tabla maps
 export const DEFAULT_MAP_ID = 'd4e5f2e4-b57f-4bac-bbf4-6347e041d4f8';
+
+// Nombre del bucket en Supabase Storage
+export const STORAGE_BUCKET = 'wifi-points'; // ← ajusta al nombre real de tu bucket
