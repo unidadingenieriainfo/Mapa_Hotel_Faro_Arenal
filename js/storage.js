@@ -28,7 +28,7 @@ export async function uploadPhoto(file, mapId, pointId) {
     .replace(/[^a-zA-Z0-9_-]/g, '_')    // caracteres seguros
     .substring(0, 60);                   // limitar longitud
 
-  const path = `wifi-points/${mapId}/${pointId}/${timestamp}_${safeName}.${ext}`;
+  const path = `${mapId}/${pointId}/${timestamp}_${safeName}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(STORAGE_BUCKET)
