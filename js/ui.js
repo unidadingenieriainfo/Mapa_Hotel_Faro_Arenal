@@ -8,11 +8,6 @@ import { classifyRSSI } from './points.js';
 // Notificaciones (toast)
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Muestra un mensaje de notificación flotante.
- * @param {string} message
- * @param {'success'|'error'|'info'|'warning'} type
- */
 export function showToast(message, type = 'info') {
   let container = document.getElementById('toast-container');
   if (!container) {
@@ -26,10 +21,8 @@ export function showToast(message, type = 'info') {
   toast.textContent = message;
   container.appendChild(toast);
 
-  // Animación de entrada
   requestAnimationFrame(() => toast.classList.add('toast-show'));
 
-  // Auto-eliminar
   setTimeout(() => {
     toast.classList.remove('toast-show');
     toast.addEventListener('transitionend', () => toast.remove(), { once: true });
@@ -40,10 +33,6 @@ export function showToast(message, type = 'info') {
 // Estado de sesión en el header
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Actualiza los elementos de UI según el estado de autenticación.
- * @param {Object|null} user
- */
 export function updateAuthUI(user) {
   const userInfo  = document.getElementById('user-info');
   const btnLogin  = document.getElementById('btn-login');
@@ -65,10 +54,6 @@ export function updateAuthUI(user) {
   }
 }
 
-/**
- * Actualiza el botón de modo edición.
- * @param {boolean} isEditMode
- */
 export function updateEditModeButton(isEditMode) {
   const btn = document.getElementById('btn-toggle-edit');
   if (!btn) return;
@@ -77,6 +62,41 @@ export function updateEditModeButton(isEditMode) {
 
   const badge = document.getElementById('edit-mode-badge');
   if (badge) badge.style.display = isEditMode ? '' : 'none';
+
+  // Mostrar u ocultar la instrucción flotante
+  isEditMode ? _showEditHint() : _hideEditHint();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Hint flotante "clic en mapa para agregar punto"
+// ─────────────────────────────────────────────────────────────
+
+function _showEditHint() {
+  let hint = document.getElementById('edit-mode-hint');
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.id = 'edit-mode-hint';
+    hint.innerHTML = `
+      <span class="edit-hint-icon">✏️</span>
+      <div class="edit-hint-text">
+        <strong>Modo Edición activo</strong>
+        <span>Haz clic sobre el mapa para agregar un punto WiFi</span>
+      </div>
+      <button class="edit-hint-close" id="edit-hint-close-btn">✕</button>
+    `;
+    const mapArea = document.getElementById('map-area');
+    if (mapArea) mapArea.appendChild(hint);
+
+    document.getElementById('edit-hint-close-btn')?.addEventListener('click', () => {
+      hint.classList.add('hint-dismissed');
+    });
+  }
+  hint.classList.remove('hint-dismissed', 'hint-hidden');
+}
+
+function _hideEditHint() {
+  const hint = document.getElementById('edit-mode-hint');
+  if (hint) hint.classList.add('hint-hidden');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -99,55 +119,115 @@ export function setLoginError(message) {
 
 export function setLoginLoading(loading) {
   const btn = document.getElementById('btn-login-submit');
-  btn.disabled     = loading;
-  btn.textContent  = loading ? 'Ingresando…' : 'Ingresar';
+  btn.disabled    = loading;
+  btn.textContent = loading ? 'Ingresando…' : 'Ingresar';
 }
 
 // ─────────────────────────────────────────────────────────────
-// Modal de Crear Punto
+// Modal de Crear Punto — con preview de foto
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Abre el modal de creación de punto.
- * @param {number} xPercent
- * @param {number} yPercent
- * @param {Function} onSubmit  callback(formData)
- */
 export function openCreatePointModal(xPercent, yPercent, onSubmit) {
   const modal = document.getElementById('modal-create-point');
   modal.classList.add('modal-open');
 
-  // Mostrar coordenadas informativas
   document.getElementById('cp-coords').textContent =
     `X: ${xPercent.toFixed(1)}% — Y: ${yPercent.toFixed(1)}%`;
 
-  // Limpiar formulario
   document.getElementById('form-create-point').reset();
   document.getElementById('cp-error').textContent = '';
 
-  // Guardar callback en el form
-  modal.dataset.onSubmit = 'pending';
+  // Limpiar preview anterior y reinicializar
+  const old = document.getElementById('cp-photo-preview-wrap');
+  if (old) old.remove();
+  _initCreatePhotoPreview();
+
   modal._onSubmit = onSubmit;
   modal._xPercent = xPercent;
   modal._yPercent = yPercent;
+
+  setTimeout(() => document.getElementById('cp-name')?.focus(), 80);
 }
 
 export function closeCreatePointModal() {
   document.getElementById('modal-create-point').classList.remove('modal-open');
+  const prev = document.getElementById('cp-photo-preview-wrap');
+  if (prev) prev.remove();
+}
+
+function _initCreatePhotoPreview() {
+  const photoInput = document.getElementById('cp-photo');
+  if (!photoInput) return;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'cp-photo-preview-wrap';
+  wrap.className = 'cp-photo-preview-wrap hidden';
+  wrap.innerHTML = `
+    <div class="cp-photo-thumb-wrap">
+      <img id="cp-photo-preview-img" src="" alt="Vista previa" />
+      <button type="button" id="cp-photo-clear" class="cp-photo-clear" title="Quitar foto">✕</button>
+    </div>
+    <span class="cp-photo-preview-name" id="cp-photo-preview-name"></span>
+  `;
+  photoInput.parentNode.insertBefore(wrap, photoInput.nextSibling);
+
+  photoInput.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) { wrap.classList.add('hidden'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      document.getElementById('cp-photo-preview-img').src = e.target.result;
+      document.getElementById('cp-photo-preview-name').textContent = file.name;
+      wrap.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('cp-photo-clear')?.addEventListener('click', () => {
+    photoInput.value = '';
+    document.getElementById('cp-photo-preview-img').src = '';
+    wrap.classList.add('hidden');
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Lightbox
+// ─────────────────────────────────────────────────────────────
+
+export function openLightbox(url) {
+  if (!url) return;
+
+  let lb = document.getElementById('app-lightbox');
+  if (!lb) {
+    lb = document.createElement('div');
+    lb.id = 'app-lightbox';
+    lb.innerHTML = `
+      <button id="lb-close" title="Cerrar (Esc)">✕</button>
+      <img id="lb-img" src="" alt="Foto completa" />
+    `;
+    document.body.appendChild(lb);
+
+    lb.addEventListener('click', (e) => {
+      if (e.target === lb || e.target.id === 'lb-img') lb.classList.remove('lb-open');
+    });
+    document.getElementById('lb-close').addEventListener('click', () => lb.classList.remove('lb-open'));
+
+    // Cerrar con Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lb.classList.contains('lb-open')) lb.classList.remove('lb-open');
+    });
+  }
+
+  document.getElementById('lb-img').src = url;
+  lb.classList.add('lb-open');
 }
 
 // ─────────────────────────────────────────────────────────────
 // Panel de Detalle / Edición de Punto
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Abre el panel lateral con datos del punto.
- * @param {Object}   point
- * @param {boolean}  editMode
- * @param {Object}   callbacks  { onSave, onDelete, onPhotoUpload }
- */
 export function openDetailPanel(point, editMode, callbacks) {
-  const panel     = document.getElementById('detail-panel');
+  const panel = document.getElementById('detail-panel');
   const { label, className, color } = classifyRSSI(point.rssi);
 
   panel.innerHTML = _buildDetailPanelHTML(point, label, color, editMode);
@@ -155,23 +235,32 @@ export function openDetailPanel(point, editMode, callbacks) {
 
   if (editMode) {
     _bindDetailPanelEvents(panel, point, callbacks);
+  } else {
+    // Modo vista: foto → lightbox
+    const heroImg = panel.querySelector('.detail-hero-img');
+    if (heroImg) {
+      heroImg.addEventListener('click', () => openLightbox(point.photo_url));
+    }
   }
 }
 
 export function closeDetailPanel() {
-  const panel = document.getElementById('detail-panel');
-  panel.classList.remove('panel-open');
+  document.getElementById('detail-panel')?.classList.remove('panel-open');
 }
 
 function _buildDetailPanelHTML(point, qualityLabel, qualityColor, editMode) {
-  const photoSection = point.photo_url
-    ? `<div class="detail-photo">
-         <img src="${point.photo_url}" alt="Foto del punto" loading="lazy" />
-       </div>`
-    : `<div class="detail-no-photo">Sin fotografía registrada</div>`;
+  let photoSection;
+  if (point.photo_url) {
+    photoSection = `
+      <div class="detail-photo-hero${editMode ? '' : ' detail-photo-zoomable'}">
+        <img class="detail-hero-img" src="${point.photo_url}" alt="Foto del punto" loading="lazy" />
+        ${editMode ? '' : '<span class="detail-zoom-hint">🔍 Clic para ampliar</span>'}
+      </div>`;
+  } else {
+    photoSection = `<div class="detail-no-photo">📷 Sin fotografía registrada</div>`;
+  }
 
   if (!editMode) {
-    // Modo vista: solo lectura
     return `
       <div class="panel-header">
         <h3>${_esc(point.name)}</h3>
@@ -188,9 +277,7 @@ function _buildDetailPanelHTML(point, qualityLabel, qualityColor, editMode) {
           <span class="detail-value">${_esc(point.zone || '—')}</span>
           <span class="detail-label">RSSI</span>
           <span class="detail-value">
-            <span class="rssi-badge" style="background:${qualityColor}">
-              ${point.rssi} dBm
-            </span>
+            <span class="rssi-badge" style="background:${qualityColor}">${point.rssi} dBm</span>
             <span class="rssi-quality">${qualityLabel}</span>
           </span>
           ${point.notes ? `
@@ -204,7 +291,6 @@ function _buildDetailPanelHTML(point, qualityLabel, qualityColor, editMode) {
     `;
   }
 
-  // Modo edición: formulario
   return `
     <div class="panel-header">
       <h3>Editar Punto</h3>
@@ -212,11 +298,19 @@ function _buildDetailPanelHTML(point, qualityLabel, qualityColor, editMode) {
     </div>
     <div class="panel-body">
       ${photoSection}
+
       <div class="form-group">
-        <label>Foto</label>
+        <label>📷 Cambiar foto</label>
         <input type="file" id="dp-photo" accept="image/jpeg,image/png,image/webp" />
+        <div id="dp-photo-preview-wrap" class="cp-photo-preview-wrap hidden">
+          <div class="cp-photo-thumb-wrap">
+            <img id="dp-photo-preview-img" src="" alt="Preview" />
+          </div>
+          <span class="cp-photo-preview-name" id="dp-photo-preview-name"></span>
+        </div>
         <span id="dp-photo-status" class="field-hint"></span>
       </div>
+
       <div class="form-group">
         <label>Nombre <span class="req">*</span></label>
         <input type="text" id="dp-name" value="${_esc(point.name)}" maxlength="80" required />
@@ -255,19 +349,49 @@ function _buildDetailPanelHTML(point, qualityLabel, qualityColor, editMode) {
 }
 
 function _bindDetailPanelEvents(panel, point, { onSave, onDelete, onPhotoUpload }) {
-  const btnSave   = panel.querySelector('#dp-btn-save');
-  const btnDelete = panel.querySelector('#dp-btn-delete');
+  const btnSave    = panel.querySelector('#dp-btn-save');
+  const btnDelete  = panel.querySelector('#dp-btn-delete');
   const photoInput = panel.querySelector('#dp-photo');
   const errorEl    = panel.querySelector('#dp-error');
 
-  // Foto: preview y callback
   photoInput?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Preview local
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const prevWrap = panel.querySelector('#dp-photo-preview-wrap');
+      const prevImg  = panel.querySelector('#dp-photo-preview-img');
+      const prevName = panel.querySelector('#dp-photo-preview-name');
+      if (prevWrap && prevImg) {
+        prevImg.src = ev.target.result;
+        if (prevName) prevName.textContent = file.name;
+        prevWrap.classList.remove('hidden');
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // Subir
     const statusEl = panel.querySelector('#dp-photo-status');
-    statusEl.textContent = 'Subiendo…';
+    if (statusEl) statusEl.textContent = '⏳ Subiendo…';
+
     const result = await onPhotoUpload(file, point.id);
-    statusEl.textContent = result.error ? '❌ Error al subir' : '✅ Foto actualizada';
+    if (statusEl) {
+      statusEl.textContent = result.error ? '❌ Error al subir' : '✅ Foto actualizada';
+    }
+
+    // Actualizar hero si fue exitoso
+    if (!result.error) {
+      const hero = panel.querySelector('.detail-hero-img');
+      const heroWrap = panel.querySelector('.detail-photo-hero');
+      if (hero && result.url) {
+        hero.src = result.url;
+      } else if (heroWrap && result.url) {
+        // Era "sin foto", ahora tiene
+        heroWrap.outerHTML = `<div class="detail-photo-hero"><img class="detail-hero-img" src="${result.url}" /></div>`;
+      }
+    }
   });
 
   btnSave?.addEventListener('click', async () => {
@@ -283,16 +407,15 @@ function _bindDetailPanelEvents(panel, point, { onSave, onDelete, onPhotoUpload 
     btnSave.disabled    = true;
     btnSave.textContent = 'Guardando…';
 
-    const updates = {
+    await onSave(point.id, {
       name,
       cabinet: panel.querySelector('#dp-cabinet')?.value.trim() || null,
       room:    panel.querySelector('#dp-room')?.value.trim()    || null,
       zone:    panel.querySelector('#dp-zone')?.value.trim()    || null,
       rssi,
       notes:   panel.querySelector('#dp-notes')?.value.trim()  || null,
-    };
+    });
 
-    await onSave(point.id, updates);
     btnSave.disabled    = false;
     btnSave.textContent = '💾 Guardar';
   });
@@ -308,10 +431,6 @@ function _bindDetailPanelEvents(panel, point, { onSave, onDelete, onPhotoUpload 
 // Filtros
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Puebla el filtro de gabinetes con los valores únicos.
- * @param {Array} points
- */
 export function populateCabinetFilter(points) {
   const select = document.getElementById('filter-cabinet');
   if (!select) return;
@@ -333,10 +452,6 @@ export function populateCabinetFilter(points) {
 // Tabla resumen
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Renderiza la tabla resumen con todos los puntos.
- * @param {Array} points
- */
 export function renderSummaryTable(points) {
   const tbody = document.getElementById('summary-tbody');
   if (!tbody) return;
@@ -355,11 +470,7 @@ export function renderSummaryTable(points) {
         <td>${_esc(p.cabinet || '—')}</td>
         <td>${_esc(p.room || '—')}</td>
         <td>${_esc(p.zone || '—')}</td>
-        <td>
-          <span class="rssi-badge" style="background:${color}">
-            ${p.rssi} dBm
-          </span>
-        </td>
+        <td><span class="rssi-badge" style="background:${color}">${p.rssi} dBm</span></td>
         <td><span class="quality-label">${label}</span></td>
       </tr>
     `;
@@ -368,10 +479,6 @@ export function renderSummaryTable(points) {
   updateStatCounters(points);
 }
 
-/**
- * Actualiza los contadores estadísticos en el header.
- * @param {Array} points
- */
 export function updateStatCounters(points) {
   const total     = points.length;
   const excellent = points.filter(p => p.rssi >= -55).length;
@@ -387,7 +494,7 @@ export function updateStatCounters(points) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Loader de pantalla completa
+// Loader
 // ─────────────────────────────────────────────────────────────
 
 export function showLoader(message = 'Cargando…') {
@@ -404,7 +511,7 @@ export function hideLoader() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Privado: helpers
+// Helpers
 // ─────────────────────────────────────────────────────────────
 
 function _esc(str) {
@@ -421,7 +528,6 @@ function _setEl(id, value) {
   if (el) el.textContent = value;
 }
 
-// Exponer cierre de panel para el botón inline del HTML
 window._closePanel = () => {
   document.getElementById('detail-panel')?.classList.remove('panel-open');
 };
