@@ -75,10 +75,8 @@ async function loadMap(mapId) {
   mapTitleEl.textContent    = map.name;
   mapTitleEl.style.display  = '';   // visible: en el nuevo HTML arranca con display:none
 
-  // Actualizar imagen base si existe URL en BD
-  if (map.base_image_url && !map.base_image_url.startsWith('assets/')) {
-    document.getElementById('map-image').src = map.base_image_url;
-  }
+  // Siempre usar la imagen local: assets/img/habitaciones_003.jpg
+  // (base_image_url de Supabase se ignora para evitar imágenes incorrectas)
 
   await loadPoints();
   hideLoader();
