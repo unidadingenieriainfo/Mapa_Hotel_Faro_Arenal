@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa WiFi — Hotel Faro Arenal · Coopelesca R.L.</title>
+  <meta name="description" content="Mapa interactivo de cobertura WiFi — Hotel Faro Arenal · Proyecto WiFi Empresarial Coopelesca R.L." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%2300a8cc' d='M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4 2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z'/></svg>" />
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+
+  <div id="app-loader">
+    <div class="loader-spinner"></div>
+    <span class="loader-text">Cargando aplicación…</span>
+  </div>
+
+  <header id="app-header">
+    <div class="header-brand">
+      <svg id="app-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9z"  fill="#00a8cc"/>
+        <path d="M5 13l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" fill="#00a8cc"/>
+        <path d="M9 17l3 3 3-3c-1.65-1.66-4.34-1.66-6 0z" fill="#00a8cc"/>
+      </svg>
+      <div class="header-titles">
+        <span class="header-coopelesca">COOPELESCA R.L.</span>
+        <span id="app-title">Mapa Hotel Faro Arenal</span>
+        <span class="header-subtitle">Proyecto WiFi Empresarial — Cobertura de señal</span>
+      </div>
+      <span class="header-badge">F-ARNL · 2026</span>
+    </div>
+    <span class="header-spacer"></span>
+    <div class="header-controls">
+      <span id="edit-mode-badge">✏ EDICIÓN ACTIVA</span>
+      <span id="user-info" style="display:none"></span>
+      <span id="map-title" style="display:none"></span>
+      <button id="btn-toggle-edit" class="btn btn-secondary btn-sm" style="display:none">✏️ Modo Edición</button>
+      <button id="btn-logout"      class="btn btn-ghost btn-sm"     style="display:none">Cerrar sesión</button>
+      <button id="btn-login"       class="btn btn-primary btn-sm">🔐 Ingresar</button>
+    </div>
+  </header>
+
+  <div id="stats-bar">
+    <div class="stat-chip chip-total">
+      <span class="stat-dot"></span><span class="stat-count" id="stat-total">0</span><span class="stat-label">Puntos</span>
+    </div>
+    <div class="stat-chip chip-excellent">
+      <span class="stat-dot"></span><span class="stat-count" id="stat-excellent">0</span><span class="stat-label">Excelente</span>
+    </div>
+    <div class="stat-chip chip-good">
+      <span class="stat-dot"></span><span class="stat-count" id="stat-good">0</span><span class="stat-label">Bueno</span>
+    </div>
+    <div class="stat-chip chip-fair">
+      <span class="stat-dot"></span><span class="stat-count" id="stat-fair">0</span><span class="stat-label">Regular</span>
+    </div>
+    <div class="stat-chip chip-poor">
+      <span class="stat-dot"></span><span class="stat-count" id="stat-poor">0</span><span class="stat-label">Deficiente</span>
+    </div>
+  </div>
+
+  <div id="app-body">
+
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">🔍 Filtros</div>
+        <div class="filter-group">
+          <label for="filter-cabinet">Gabinete</label>
+          <select id="filter-cabinet"><option value="">— Todos —</option></select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-rssi">Calidad de señal</label>
+          <select id="filter-rssi">
+            <option value="">— Todas —</option>
+            <option value="rssi-excellent">🟢 Excelente (≥ −55 dBm)</option>
+            <option value="rssi-good">🔵 Bueno (−56 a −70 dBm)</option>
+            <option value="rssi-fair">🟡 Regular (−71 a −75 dBm)</option>
+            <option value="rssi-poor">🔴 Deficiente (≤ −76 dBm)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">📶 Leyenda RSSI</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#22c55e"></span><span>Excelente</span><small>≥ −55 dBm</small></div>
+        <div class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span><span>Bueno</span><small>−56 a −70</small></div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span><span>Regular</span><small>−71 a −75</small></div>
+        <div class="legend-item"><span class="legend-dot" style="background:#ef4444"></span><span>Deficiente</span><small>≤ −76 dBm</small></div>
+      </div>
+
+      <!-- Lista de puntos (de map_Faro_Arenal) -->
+      <div class="sidebar-section sidebar-section--list">
+        <div class="sidebar-title">📍 Puntos registrados</div>
+        <div id="point-list"><div class="point-list-empty">Cargando…</div></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">💡 Uso</div>
+        <div class="sidebar-hint">
+          <p>📍 <strong>Ver detalle:</strong> clic sobre marcador.</p>
+          <p>✏️ <strong>Agregar:</strong> modo edición + clic en el mapa.</p>
+          <p>↔️ <strong>Mover:</strong> arrastrar en modo edición.</p>
+        </div>
+      </div>
+
+      <button id="btn-refresh" class="btn btn-ghost btn-sm btn-full">🔄 Recargar puntos</button>
+    </aside>
+
+    <main id="map-area">
+      <div id="map-container">
+        <img id="map-image" src="./assets/img/habitaciones_003.jpg"
+          alt="Mapa Hotel Faro Arenal — Plano de habitaciones" draggable="false" />
+        <!-- Tooltip global del mapa (de Lecturas_Senal) -->
+        <div id="map-tooltip" class="map-tooltip" role="tooltip" aria-hidden="true"></div>
+      </div>
+    </main>
+
+    <aside id="detail-panel"><!-- ui.js lo llena dinámicamente --></aside>
+
+  </div>
+
+  <section id="summary-section">
+    <h4>📋 Resumen de mediciones WiFi</h4>
+    <table id="summary-table">
+      <thead>
+        <tr>
+          <th>Nombre</th><th>Gabinete</th><th>Habitación</th>
+          <th>Zona</th><th>RSSI</th><th>Calidad</th><th>Fotos</th>
+        </tr>
+      </thead>
+      <tbody id="summary-tbody">
+        <tr><td colspan="7" class="table-empty">Cargando puntos…</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer id="app-footer">
+    <strong>Coopelesca R.L. – Departamento de Infocomunicaciones</strong><br>
+    Unidad de Ingeniería / NOC · Proyecto WiFi Empresarial Hotel Faro Arenal · 2026
+  </footer>
+
+  <!-- MODAL: LOGIN -->
+  <div id="modal-login" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+    <div class="modal-card">
+      <div class="modal-brand">
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9z" fill="#00a8cc"/><path d="M5 13l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" fill="#00a8cc"/><path d="M9 17l3 3 3-3c-1.65-1.66-4.34-1.66-6 0z" fill="#00a8cc"/></svg>
+        <span>COOPELESCA R.L.</span>
+      </div>
+      <h2 class="modal-title" id="login-modal-title">🔐 Acceso de administrador</h2>
+      <p class="modal-subtitle-text">Ingresa tus credenciales para activar el modo edición.</p>
+      <div class="form-group">
+        <label for="login-email">Correo electrónico</label>
+        <input type="email" id="login-email" placeholder="usuario@coopelesca.co.cr" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label for="login-password">Contraseña</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <p id="login-error" class="form-error"></p>
+      <div class="modal-actions">
+        <button id="btn-login-cancel" class="btn btn-ghost">Cancelar</button>
+        <button id="btn-login-submit" class="btn btn-primary">Ingresar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREAR PUNTO (con multi-foto de map_Faro_Arenal) -->
+  <div id="modal-create-point" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cp-modal-title">
+    <div class="modal-card modal-card--wide">
+      <div class="modal-brand">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#00a8cc"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg>
+        <span>Nuevo punto de medición</span>
+      </div>
+      <h2 class="modal-title" id="cp-modal-title">📍 Registrar punto WiFi</h2>
+      <p class="modal-coords" id="cp-coords"></p>
+
+      <div class="form-group">
+        <label for="cp-name">Nombre del punto <span class="req">*</span></label>
+        <input type="text" id="cp-name" maxlength="80" placeholder="Ej: HAB-101-AP1" required />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cp-cabinet">Gabinete</label>
+          <input type="text" id="cp-cabinet" maxlength="50" placeholder="Ej: GAB-A1" />
+        </div>
+        <div class="form-group">
+          <label for="cp-room">Habitación</label>
+          <input type="text" id="cp-room" maxlength="50" placeholder="Ej: 101" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cp-zone">Zona</label>
+          <input type="text" id="cp-zone" maxlength="50" placeholder="Ej: Piscina Norte" />
+        </div>
+        <div class="form-group">
+          <label for="cp-rssi">RSSI (dBm) <span class="req">*</span></label>
+          <input type="number" id="cp-rssi" min="-100" max="0" placeholder="-65" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="cp-notes">Notas u observaciones</label>
+        <textarea id="cp-notes" rows="2" maxlength="500" placeholder="Observaciones opcionales…"></textarea>
+      </div>
+
+      <!-- Multi-foto: grilla de fotos (integración de map_Faro_Arenal) -->
+      <div class="form-group">
+        <label>
+          📷 Fotografías
+          <span id="cp-photo-count-badge" class="photo-count-badge"></span>
+        </label>
+        <div id="cp-photo-grid" class="photo-grid">
+          <!-- Se llena dinámicamente por ui.js -->
+        </div>
+        <input type="file" id="cp-photo-input" accept="image/jpeg,image/png,image/webp" multiple style="display:none" />
+        <span class="field-hint">JPG, PNG o WebP — máx. 5 MB por foto</span>
+      </div>
+
+      <p id="cp-error" class="form-error"></p>
+      <div class="modal-actions">
+        <button id="btn-cp-cancel" class="btn btn-ghost">Cancelar</button>
+        <button id="btn-cp-submit" class="btn btn-primary">📍 Guardar punto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISOR DE PUNTO CON GALERÍA (tomado de map_Faro_Arenal) -->
+  <div id="viewer-overlay" role="dialog" aria-modal="true" aria-labelledby="viewer-title">
+    <div id="pin-viewer">
+      <div class="viewer-header">
+        <div class="viewer-header-left">
+          <div class="viewer-rssi-badge" id="viewer-rssi-badge">—</div>
+          <div class="viewer-title-block">
+            <div class="viewer-title" id="viewer-title"></div>
+            <div class="viewer-meta"  id="viewer-meta"></div>
+          </div>
+        </div>
+        <button class="viewer-close" id="viewer-close" title="Cerrar (Esc)">✕</button>
+      </div>
+      <div class="viewer-body" id="viewer-body"></div>
+      <div class="viewer-footer">
+        <button class="btn btn-ghost btn-sm" id="viewer-edit-btn" style="display:none">✏️ Editar punto</button>
+        <button class="btn btn-primary btn-sm" id="viewer-close-btn">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIGHTBOX -->
+  <div id="app-lightbox">
+    <button id="lb-close" title="Cerrar">✕</button>
+    <button id="lb-prev">&#8249;</button>
+    <button id="lb-next">&#8250;</button>
+    <img id="lb-img" src="" alt="Foto completa" />
+    <div id="lb-counter"></div>
+  </div>
+
+  <!-- Supabase UMD — carga síncrona, sin dynamic import -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
