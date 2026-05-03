@@ -33,8 +33,8 @@ async function init() {
     });
 
     initMap({
-      onAreaClick: handleMapAreaClick,
       onMarkerClick: handleMarkerClick,
+      onMapClick:    handleMapAreaClick,
     });
 
     _bindGlobalEvents();
