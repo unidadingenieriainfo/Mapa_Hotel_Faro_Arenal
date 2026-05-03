@@ -5,6 +5,13 @@
    Viewer:  map_Faro_Arenal (galería hero + thumbnails + lightbox)
    ============================================================= */
 
+/* =============================================================
+   css/styles.css — Mapa Hotel Faro Arenal CONSOLIDADO
+   Base:    Mapa_Hotel_Faro_Arenal (Coopelesca teal, cards blancas)
+   Markers: Lecturas_Senal (circulares con pulse animation)
+   Viewer:  map_Faro_Arenal (galería hero + thumbnails + lightbox)
+   ============================================================= */
+
 :root {
   --teal-dark:    #0e7490;
   --teal-mid:     #0891b2;
@@ -111,7 +118,7 @@ body {
 
 /* ══ MAPA ════════════════════════════════════════════════════ */
 #map-area { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: flex-start; }
-#map-container { position: relative; display: block; width: 100%; height: auto; align-self: flex-start; cursor: default; border-radius: var(--radius-md); overflow: visible; box-shadow: var(--card-shadow); border: 3px solid var(--teal-50); background: white; user-select: none; }
+#map-container { position: relative; display: block; width: 100%; min-width: 900px; height: auto; align-self: flex-start; cursor: default; border-radius: var(--radius-md); overflow: visible; box-shadow: var(--card-shadow); border: 3px solid var(--teal-50); background: white; user-select: none; }
 #map-image { display: block; width: 100%; height: auto; max-width: 100%; pointer-events: none; border-radius: calc(var(--radius-md) - 3px); }
 
 /* ══ MARCADORES — Estilo Lecturas_Senal (circulares + pulse) ═ */
