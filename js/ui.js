@@ -243,7 +243,7 @@ export function openPointViewer(point, editMode, callbacks = {}) {
     rssiEl.style.background = color;
     rssiEl.innerHTML = `<span>${point.rssi} dBm</span><span style="font-size:.65rem;font-weight:400;opacity:.9">${label}</span>`;
   }
-  document.getElementById('viewer-title').textContent = point.name;
+  document.getElementById('viewer-title').textContent = point.label;
   document.getElementById('viewer-meta').textContent  = _buildViewerMeta(point);
 
   // ── Botón editar (solo en modo edición autenticado)
@@ -262,8 +262,8 @@ export function openPointViewer(point, editMode, callbacks = {}) {
 function _buildViewerMeta(point) {
   const parts = [];
   if (point.cabinet) parts.push(`Gabinete: ${point.cabinet}`);
-  if (point.room)    parts.push(`Hab. ${point.room}`);
-  if (point.zone)    parts.push(point.zone);
+  if (point.port)    parts.push(`${point.port}`);
+  if (point.description)    parts.push(point.description);
   const photosCount = point.photos?.length ?? 0;
   parts.push(`${photosCount} foto${photosCount !== 1 ? 's' : ''}`);
   return parts.join(' · ');
@@ -281,9 +281,9 @@ function _renderViewerBody() {
   const fields = [
     ['RSSI', `<span class="rssi-badge" style="background:${color}">${_viewerPoint.rssi} dBm</span> <span class="rssi-quality">${label}</span>`],
     _viewerPoint.cabinet  ? ['Gabinete',   _esc(_viewerPoint.cabinet)]  : null,
-    _viewerPoint.room     ? ['Habitación', _esc(_viewerPoint.room)]      : null,
-    _viewerPoint.zone     ? ['Zona',       _esc(_viewerPoint.zone)]      : null,
-    [`Posición`, `X: ${parseFloat(_viewerPoint.x_percent).toFixed(2)}% · Y: ${parseFloat(_viewerPoint.y_percent).toFixed(2)}%`],
+    _viewerPoint.port     ? ['Puerto', _esc(_viewerPoint.port)]      : null,
+    _viewerPoint.description     ? ['Zona',       _esc(_viewerPoint.description)]      : null,
+    [`Posición`, `X: ${parseFloat(_viewerPoint.x_pct).toFixed(2)}% · Y: ${parseFloat(_viewerPoint.y_pct).toFixed(2)}%`],
   ].filter(Boolean);
 
   fields.forEach(([lbl, val]) => {
@@ -294,10 +294,10 @@ function _renderViewerBody() {
   body.appendChild(dataGrid);
 
   // Notas
-  if (_viewerPoint.notes) {
+  if (_viewerPoint.description) {
     const notesEl = document.createElement('div');
     notesEl.className = 'viewer-notes';
-    notesEl.textContent = _viewerPoint.notes;
+    notesEl.textContent = _viewerPoint.description;
     body.appendChild(notesEl);
   }
 
@@ -497,7 +497,7 @@ function _buildViewPanelHTML(point, qualityLabel, color) {
 
   return `
     <div class="panel-header">
-      <h3>${_esc(point.name)}</h3>
+      <h3>${_esc(point.label)}</h3>
       <button class="btn-close-panel" onclick="window._closePanel()">✕</button>
     </div>
     <div class="panel-body">
@@ -506,17 +506,17 @@ function _buildViewPanelHTML(point, qualityLabel, color) {
         <span class="detail-label">Gabinete</span>
         <span class="detail-value">${_esc(point.cabinet || '—')}</span>
         <span class="detail-label">Habitación</span>
-        <span class="detail-value">${_esc(point.room || '—')}</span>
+        <span class="detail-value">${_esc(point.port || '—')}</span>
         <span class="detail-label">Zona</span>
-        <span class="detail-value">${_esc(point.zone || '—')}</span>
+        <span class="detail-value">${_esc(point.description || '—')}</span>
         <span class="detail-label">RSSI</span>
         <span class="detail-value">
           <span class="rssi-badge" style="background:${color}">${point.rssi} dBm</span>
           <span class="rssi-quality">${qualityLabel}</span>
         </span>
-        ${point.notes ? `<span class="detail-label">Notas</span><span class="detail-value">${_esc(point.notes)}</span>` : ''}
+        ${point.description ? `<span class="detail-label">Notas</span><span class="detail-value">${_esc(point.description)}</span>` : ''}
       </div>
-      <div class="detail-coords">📍 X: ${parseFloat(point.x_percent).toFixed(2)}% · Y: ${parseFloat(point.y_percent).toFixed(2)}%</div>
+      <div class="detail-coords">📍 X: ${parseFloat(point.x_pct).toFixed(2)}% · Y: ${parseFloat(point.y_pct).toFixed(2)}%</div>
     </div>`;
 }
 
@@ -540,7 +540,7 @@ function _buildEditPanelHTML(point, qualityLabel, color) {
       </div>
       <div class="form-group">
         <label>Nombre <span class="req">*</span></label>
-        <input type="text" id="dp-name" value="${_esc(point.name)}" maxlength="80" required />
+        <input type="text" id="dp-label" value="${_esc(point.label)}" maxlength="80" required />
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -548,23 +548,19 @@ function _buildEditPanelHTML(point, qualityLabel, color) {
           <input type="text" id="dp-cabinet" value="${_esc(point.cabinet || '')}" maxlength="50" />
         </div>
         <div class="form-group">
-          <label>Habitación</label>
-          <input type="text" id="dp-room" value="${_esc(point.room || '')}" maxlength="50" />
+          <label>Puerto</label>
+          <input type="text" id="dp-port" value="${_esc(point.port || '')}" maxlength="50" />
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label>Zona</label>
-          <input type="text" id="dp-zone" value="${_esc(point.zone || '')}" maxlength="50" />
-        </div>
         <div class="form-group">
           <label>RSSI (dBm) <span class="req">*</span></label>
           <input type="number" id="dp-rssi" value="${point.rssi}" min="-100" max="0" required />
         </div>
       </div>
       <div class="form-group">
-        <label>Notas</label>
-        <textarea id="dp-notes" rows="3" maxlength="500">${_esc(point.notes || '')}</textarea>
+        <label>Descripción / Notas</label>
+        <textarea id="dp-description" rows="3" maxlength="500">${_esc(point.description || '')}</textarea>
       </div>
       <p id="dp-error" class="form-error"></p>
       <div class="panel-actions">
@@ -593,25 +589,24 @@ function _bindEditPanelEvents(panel, point, { onSave, onDelete, onPhotoUpload })
   });
 
   btnSave?.addEventListener('click', async () => {
-    const name = panel.querySelector('#dp-name')?.value.trim();
+    const name = panel.querySelector('#dp-label')?.value.trim();
     const rssi = parseInt(panel.querySelector('#dp-rssi')?.value);
     if (!name) { errorEl.textContent = 'El nombre es obligatorio.'; return; }
     if (isNaN(rssi) || rssi < -100 || rssi > 0) { errorEl.textContent = 'RSSI debe estar entre −100 y 0.'; return; }
     errorEl.textContent = '';
     btnSave.disabled = true; btnSave.textContent = 'Guardando…';
     await onSave(point.id, {
-      name,
-      cabinet: panel.querySelector('#dp-cabinet')?.value.trim() || null,
-      room:    panel.querySelector('#dp-room')?.value.trim()    || null,
-      zone:    panel.querySelector('#dp-zone')?.value.trim()    || null,
+      label:       name,
       rssi,
-      notes:   panel.querySelector('#dp-notes')?.value.trim()  || null,
+      cabinet:     panel.querySelector('#dp-cabinet')?.value.trim()     || null,
+      port:        panel.querySelector('#dp-port')?.value.trim()        || null,
+      description: panel.querySelector('#dp-description')?.value.trim() || null,
     });
     btnSave.disabled = false; btnSave.textContent = '💾 Guardar';
   });
 
   btnDelete?.addEventListener('click', async () => {
-    if (!confirm(`¿Eliminar el punto "${point.name}"? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(`¿Eliminar el punto "${point.label}"? Esta acción no se puede deshacer.`)) return;
     await onDelete(point.id, point.photo_path ?? null);
     closeDetailPanel();
   });
@@ -645,8 +640,8 @@ export function renderPointList(points, onClick) {
     item.innerHTML = `
       <span class="point-list-dot" style="background:${color}"></span>
       <div class="point-list-info">
-        <div class="point-list-name" title="${_esc(point.name)}">${_esc(_truncate(point.name, 22))}</div>
-        <div class="point-list-sub">${_esc(point.room || point.zone || point.cabinet || '—')}</div>
+        <div class="point-list-name" title="${_esc(point.label)}">${_esc(_truncate(point.label, 22))}</div>
+        <div class="point-list-sub">${_esc(point.port || point.description || point.cabinet || '—')}</div>
       </div>
       <span class="point-list-rssi" style="background:${color}">${point.rssi}</span>
     `;
@@ -709,8 +704,8 @@ export function renderSummaryTable(points) {
       <tr class="table-row" data-id="${p.id}">
         <td>${_esc(p.name)}</td>
         <td>${_esc(p.cabinet || '—')}</td>
-        <td>${_esc(p.room    || '—')}</td>
-        <td>${_esc(p.zone    || '—')}</td>
+        <td>${_esc(p.port    || '—')}</td>
+        <td>${_esc(p.description    || '—')}</td>
         <td><span class="rssi-badge" style="background:${color}">${p.rssi} dBm</span></td>
         <td><span class="quality-label" style="color:${color};font-weight:600">${label}</span></td>
         <td>${photosCount ? `📷 ${photosCount}` : '—'}</td>
