@@ -1,264 +1,193 @@
 // ============================================================
 // js/map.js — Mapa interactivo
-// Marcadores: estilo circular con pulse animation (Lecturas_Senal)
-// Tooltip:    rico con RSSI badge y datos técnicos
-// Drag&Drop:  modo edición (Mapa_Hotel_Faro_Arenal)
+// Campos del punto: label, x_pct, y_pct, rssi, cabinet, port, description, photos
 // ============================================================
 
 import { classifyRSSI } from './points.js';
 
 // ── Estado interno ───────────────────────────────────────────
-let _mapContainer = null;
-let _mapImage     = null;
+let _container    = null;   // #map-container
+let _tooltip      = null;   // #map-tooltip
 let _editMode     = false;
-let _tooltip      = null;
 
-let _onPointClick = null;
-let _onMapClick   = null;
-let _onPointMoved = null;
+let _onMarkerClick = null;
+let _onMapClick    = null;
+let _onPointMoved  = null;
 
-const _points = new Map();  // pointId → pointData
+const _points = new Map(); // id → pointData
 
-// ── Inicialización ───────────────────────────────────────────
+// ── Init ─────────────────────────────────────────────────────
 
-export function initMap({ containerId, imageId, onPointClick, onMapClick, onPointMoved }) {
-  _mapContainer = document.getElementById(containerId);
-  _mapImage     = document.getElementById(imageId);
-  _tooltip      = document.getElementById('map-tooltip');
-  _onPointClick = onPointClick;
-  _onMapClick   = onMapClick;
-  _onPointMoved = onPointMoved;
+export function initMap({ onMarkerClick, onMapClick, onPointMoved } = {}) {
+  _container     = document.getElementById('map-container');
+  _tooltip       = document.getElementById('map-tooltip');
+  _onMarkerClick = onMarkerClick ?? null;
+  _onMapClick    = onMapClick    ?? null;
+  _onPointMoved  = onPointMoved  ?? null;
 
-  _mapContainer.addEventListener('click', _handleMapClick);
+  if (!_container) { console.error('[map] #map-container no encontrado'); return; }
+
+  _container.addEventListener('click', _handleContainerClick);
 }
 
 // ── Modo edición ─────────────────────────────────────────────
 
 export function setEditMode(active) {
   _editMode = active;
-  _mapContainer.style.cursor = active ? 'crosshair' : 'default';
+  if (_container) _container.style.cursor = active ? 'crosshair' : 'default';
 }
 
 // ── Renderizado ───────────────────────────────────────────────
 
-/** Renderiza todos los puntos */
 export function renderPoints(points) {
-  _clearMarkers();
+  document.querySelectorAll('.map-marker').forEach(el => el.remove());
   _points.clear();
-  points.forEach(p => {
-    _points.set(p.id, p);
-    _createMarkerElement(p);
-  });
+  points.forEach(p => { _points.set(p.id, p); _createMarker(p); });
 }
 
-/** Agrega o actualiza un marcador individual */
 export function upsertMarker(point) {
   _points.set(point.id, point);
-  const existing = document.getElementById(`marker-${point.id}`);
-  if (existing) existing.remove();
-  _createMarkerElement(point);
+  document.getElementById(`marker-${point.id}`)?.remove();
+  _createMarker(point);
 }
 
-/** Elimina un marcador */
 export function removeMarker(pointId) {
   document.getElementById(`marker-${pointId}`)?.remove();
   _points.delete(pointId);
 }
 
 // ── Filtros ───────────────────────────────────────────────────
+// rssi puede ser 'all' | 'rssi-excellent' | 'rssi-good' | 'rssi-fair' | 'rssi-poor'
 
-export function applyFilters({ cabinet = '', rssiClass = '' }) {
+export function applyFilters({ cabinet = 'all', rssi = 'all' } = {}) {
   _points.forEach((point, id) => {
     const el = document.getElementById(`marker-${id}`);
     if (!el) return;
     const { className } = classifyRSSI(point.rssi);
-    const matchCabinet  = !cabinet   || point.cabinet === cabinet;
-    const matchRssi     = !rssiClass || className     === rssiClass;
-    el.style.display = (matchCabinet && matchRssi) ? '' : 'none';
+    const okCabinet = cabinet === 'all' || point.cabinet === cabinet;
+    const okRssi    = rssi    === 'all' || className     === rssi;
+    el.style.display = (okCabinet && okRssi) ? '' : 'none';
   });
 }
 
-// ── Crear marcador (estilo Lecturas_Senal: circular + pulse) ──
+// ── Crear marcador ────────────────────────────────────────────
 
-function _createMarkerElement(point) {
-  const { label, className, color } = classifyRSSI(point.rssi);
+function _createMarker(point) {
+  if (!_container) return;
+  const { className, color, label: qualityLabel } = classifyRSSI(point.rssi);
 
   const marker = document.createElement('div');
-  marker.id        = `marker-${point.id}`;
-  marker.className = `map-marker ${className}`;
+  marker.id         = `marker-${point.id}`;
+  marker.className  = `map-marker ${className}`;
   marker.dataset.id = point.id;
-  marker.style.left = `${point.x_percent}%`;
-  marker.style.top  = `${point.y_percent}%`;
+  marker.style.left = `${point.x_pct}%`;
+  marker.style.top  = `${point.y_pct}%`;
 
-  // Círculo principal (Lecturas_Senal style)
-  const circle = document.createElement('div');
+  const circle  = document.createElement('div');
   circle.className = 'marker-circle';
 
-  // Etiqueta con nombre truncado
   const labelEl = document.createElement('div');
   labelEl.className   = 'marker-label';
-  labelEl.textContent = _truncate(point.name, 14);
+  labelEl.textContent = _truncate(point.label ?? '', 14);
 
   marker.append(circle, labelEl);
 
-  // Tooltip al hover (Lecturas_Senal + datos técnicos)
-  marker.addEventListener('mouseenter', (e) => {
-    _showTooltip(point, marker, label, color);
-    marker.classList.add('active');
-  });
-  marker.addEventListener('mouseleave', () => {
-    _hideTooltip();
-    marker.classList.remove('active');
-  });
+  marker.addEventListener('mouseenter', () => { _showTooltip(point, marker, qualityLabel, color); marker.classList.add('active'); });
+  marker.addEventListener('mouseleave', () => { _hideTooltip(); marker.classList.remove('active'); });
+  marker.addEventListener('click', e => { e.stopPropagation(); _onMarkerClick?.(point.id); });
 
-  // Clic: ver detalle o abrir visor
-  marker.addEventListener('click', (e) => {
-    e.stopPropagation();
-    _onPointClick?.(point.id);
-  });
-
-  // Drag & drop (modo edición)
-  _addDragBehavior(marker, point.id);
-
-  _mapContainer.appendChild(marker);
+  _addDrag(marker, point.id);
+  _container.appendChild(marker);
 }
 
-// ── Tooltip rico (Lecturas_Senal + datos WiFi) ────────────────
+// ── Tooltip ───────────────────────────────────────────────────
 
 function _showTooltip(point, markerEl, qualityLabel, color) {
   if (!_tooltip) return;
-
   const photosCount = point.photos?.length ?? 0;
 
   _tooltip.innerHTML = `
     <div class="tt-header">
-      <span class="tt-name">${_esc(point.name)}</span>
+      <span class="tt-name">${_esc(point.label)}</span>
       <span class="tt-badge" style="background:${color}">${point.rssi} dBm</span>
     </div>
     <div class="tt-body">
-      <div class="tt-row">
-        <span>Calidad</span>
-        <span style="color:${color};font-weight:600">${qualityLabel}</span>
-      </div>
-      ${point.cabinet ? `<div class="tt-row"><span>Gabinete</span><span>${_esc(point.cabinet)}</span></div>` : ''}
-      ${point.room    ? `<div class="tt-row"><span>Habitación</span><span>${_esc(point.room)}</span></div>` : ''}
-      ${point.zone    ? `<div class="tt-row"><span>Zona</span><span>${_esc(point.zone)}</span></div>` : ''}
+      <div class="tt-row"><span>Calidad</span><span style="color:${color};font-weight:600">${qualityLabel}</span></div>
+      ${point.cabinet     ? `<div class="tt-row"><span>Gabinete</span><span>${_esc(point.cabinet)}</span></div>` : ''}
+      ${point.port        ? `<div class="tt-row"><span>Puerto</span><span>${_esc(point.port)}</span></div>` : ''}
+      ${point.description ? `<div class="tt-row"><span>Nota</span><span>${_esc(_truncate(point.description,40))}</span></div>` : ''}
     </div>
-    ${photosCount ? `<div class="tt-photos">📷 ${photosCount} foto${photosCount !== 1 ? 's' : ''} disponible${photosCount !== 1 ? 's' : ''}</div>` : ''}
+    ${photosCount ? `<div class="tt-photos">📷 ${photosCount} foto${photosCount !== 1 ? 's' : ''}</div>` : ''}
   `;
   _tooltip.classList.add('tt-visible');
 
-  // Posición: encima del marcador, centrado
-  const contRect   = _mapContainer.getBoundingClientRect();
-  const markerRect = markerEl.getBoundingClientRect();
-  const ttW  = 240;
-  const ttH  = _tooltip.offsetHeight || 120;
+  const cR = _container.getBoundingClientRect();
+  const mR = markerEl.getBoundingClientRect();
+  const ttW = 240;
+  const ttH = _tooltip.offsetHeight || 120;
 
-  let left = markerRect.left - contRect.left + markerRect.width / 2 - ttW / 2;
-  let top  = markerRect.top  - contRect.top  - ttH - 14;
+  let left = mR.left - cR.left + mR.width / 2 - ttW / 2;
+  let top  = mR.top  - cR.top  - ttH - 14;
+  left = Math.max(8, Math.min(left, cR.width - ttW - 8));
+  if (top < 8) top = mR.bottom - cR.top + 8;
 
-  // Clamping horizontal
-  left = Math.max(8, Math.min(left, contRect.width - ttW - 8));
-  // Si no cabe arriba, moverlo abajo
-  if (top < 8) top = markerRect.bottom - contRect.top + 8;
-
-  _tooltip.style.left  = `${left}px`;
-  _tooltip.style.top   = `${top}px`;
-  _tooltip.style.width = `${ttW}px`;
+  _tooltip.style.cssText += `left:${left}px;top:${top}px;width:${ttW}px;`;
 }
 
-function _hideTooltip() {
-  _tooltip?.classList.remove('tt-visible');
-}
+function _hideTooltip() { _tooltip?.classList.remove('tt-visible'); }
 
 // ── Drag & drop ───────────────────────────────────────────────
 
-function _addDragBehavior(marker, pointId) {
-  let dragging = false;
-  let startX, startY, origLeft, origTop;
+function _addDrag(marker, pointId) {
+  let dragging = false, sx, sy, ox, oy;
 
-  marker.addEventListener('mousedown', (e) => {
-    if (!_editMode) return;
-    e.preventDefault();
-    e.stopPropagation();
-
+  const start = (cx, cy) => {
+    if (!_editMode) return false;
     dragging = true;
-    startX   = e.clientX;
-    startY   = e.clientY;
-    origLeft = parseFloat(marker.style.left);
-    origTop  = parseFloat(marker.style.top);
+    sx = cx; sy = cy;
+    ox = parseFloat(marker.style.left);
+    oy = parseFloat(marker.style.top);
     marker.classList.add('dragging');
+    return true;
+  };
 
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup',   onUp);
-  });
+  const move = (cx, cy) => {
+    if (!dragging) return;
+    const r  = _container.getBoundingClientRect();
+    const nl = Math.max(0, Math.min(100, ox + (cx - sx) / r.width  * 100));
+    const nt = Math.max(0, Math.min(100, oy + (cy - sy) / r.height * 100));
+    marker.style.left = `${nl}%`;
+    marker.style.top  = `${nt}%`;
+  };
 
-  // Touch support
-  marker.addEventListener('touchstart', (e) => {
-    if (!_editMode) return;
-    e.preventDefault();
-    const t = e.touches[0];
-    dragging = true;
-    startX   = t.clientX; startY   = t.clientY;
-    origLeft = parseFloat(marker.style.left);
-    origTop  = parseFloat(marker.style.top);
-    marker.classList.add('dragging');
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
-    document.addEventListener('touchend',  onTouchEnd);
-  }, { passive: false });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    marker.classList.remove('dragging');
+    const xp = parseFloat(marker.style.left);
+    const yp = parseFloat(marker.style.top);
+    const p  = _points.get(pointId);
+    if (p) { p.x_pct = xp; p.y_pct = yp; }
+    _onPointMoved?.(pointId, xp, yp);
+  };
 
-  function onMove(e) { if (dragging) _moveTo(marker, e.clientX, e.clientY, startX, startY, origLeft, origTop); }
-  function onTouchMove(e) { e.preventDefault(); if (dragging) { const t = e.touches[0]; _moveTo(marker, t.clientX, t.clientY, startX, startY, origLeft, origTop); } }
+  marker.addEventListener('mousedown', e => { if (!_editMode) return; e.preventDefault(); e.stopPropagation(); if (!start(e.clientX, e.clientY)) return; const mm = ev => move(ev.clientX, ev.clientY); const mu = () => { end(); document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); }; document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu); });
 
-  function onUp()       { _finishDrag(marker, pointId); document.removeEventListener('mousemove', onMove);      document.removeEventListener('mouseup',  onUp);       dragging = false; }
-  function onTouchEnd() { _finishDrag(marker, pointId); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('touchend', onTouchEnd); dragging = false; }
+  marker.addEventListener('touchstart', e => { if (!_editMode) return; e.preventDefault(); const t = e.touches[0]; if (!start(t.clientX, t.clientY)) return; const tm = ev => { ev.preventDefault(); const tt = ev.touches[0]; move(tt.clientX, tt.clientY); }; const te = () => { end(); document.removeEventListener('touchmove', tm); document.removeEventListener('touchend', te); }; document.addEventListener('touchmove', tm, { passive: false }); document.addEventListener('touchend', te); }, { passive: false });
 }
 
-function _moveTo(marker, cx, cy, sx, sy, origLeft, origTop) {
-  const rect = _mapContainer.getBoundingClientRect();
-  const dx   = cx - sx;
-  const dy   = cy - sy;
-  const newLeft = Math.max(0, Math.min(100, origLeft + (dx / rect.width)  * 100));
-  const newTop  = Math.max(0, Math.min(100, origTop  + (dy / rect.height) * 100));
-  marker.style.left = `${newLeft}%`;
-  marker.style.top  = `${newTop}%`;
-}
+// ── Click en área vacía del mapa ──────────────────────────────
 
-function _finishDrag(marker, pointId) {
-  marker.classList.remove('dragging');
-  const xPercent = parseFloat(marker.style.left);
-  const yPercent = parseFloat(marker.style.top);
-  const point = _points.get(pointId);
-  if (point) { point.x_percent = xPercent; point.y_percent = yPercent; }
-  _onPointMoved?.(pointId, xPercent, yPercent);
-}
-
-// ── Clic en mapa (crear punto) ────────────────────────────────
-
-function _handleMapClick(e) {
+function _handleContainerClick(e) {
   if (!_editMode) return;
   if (e.target.closest('.map-marker')) return;
-
-  const rect     = _mapContainer.getBoundingClientRect();
-  const xPercent = ((e.clientX - rect.left) / rect.width)  * 100;
-  const yPercent = ((e.clientY - rect.top)  / rect.height) * 100;
-
-  _onMapClick?.(
-    parseFloat(xPercent.toFixed(3)),
-    parseFloat(yPercent.toFixed(3))
-  );
+  const r    = _container.getBoundingClientRect();
+  const xPct = parseFloat(((e.clientX - r.left) / r.width  * 100).toFixed(3));
+  const yPct = parseFloat(((e.clientY - r.top)  / r.height * 100).toFixed(3));
+  _onMapClick?.(xPct, yPct);
 }
 
 // ── Utilidades ────────────────────────────────────────────────
 
-function _clearMarkers() {
-  document.querySelectorAll('.map-marker').forEach(el => el.remove());
-}
-
-function _truncate(text, maxLen) {
-  return text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
-}
-
-function _esc(str) {
-  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function _truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+function _esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
