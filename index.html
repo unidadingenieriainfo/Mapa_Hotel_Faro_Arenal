@@ -646,6 +646,100 @@
     .points-list::-webkit-scrollbar { width: 4px; }
     .points-list::-webkit-scrollbar-track { background: transparent; }
     .points-list::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 2px; }
+
+    /* ── Image upload dropzone ────────────────────── */
+    .dropzone {
+      border: 2px dashed var(--gray-200);
+      border-radius: 10px;
+      padding: 16px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      position: relative;
+      background: var(--gray-50);
+    }
+    .dropzone:hover, .dropzone.drag-over {
+      border-color: var(--green-main);
+      background: var(--green-light);
+    }
+    .dropzone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .dropzone-icon { color: var(--gray-400); margin-bottom: 6px; }
+    .dropzone-icon svg { width: 24px; height: 24px; }
+    .dropzone-text { font-size: .75rem; color: var(--gray-400); font-weight: 500; }
+    .dropzone-text span { color: var(--green-main); font-weight: 700; }
+
+    /* Image preview inside modal */
+    .img-preview-wrap {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid var(--gray-200);
+      background: var(--gray-100);
+    }
+    .img-preview-wrap img {
+      width: 100%; max-height: 160px;
+      object-fit: cover; display: block;
+    }
+    .img-preview-remove {
+      position: absolute; top: 6px; right: 6px;
+      width: 24px; height: 24px;
+      background: rgba(0,0,0,.55);
+      border: none; border-radius: 50%;
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .img-preview-remove:hover { background: #DC2626; }
+    .img-preview-remove svg { width: 12px; height: 12px; }
+
+    /* Upload progress bar inside modal */
+    .upload-progress {
+      height: 4px;
+      background: var(--gray-100);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+      display: none;
+    }
+    .upload-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green-acc), var(--green-main));
+      border-radius: 2px;
+      width: 0%;
+      transition: width .3s ease;
+      animation: progress-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes progress-pulse {
+      0%,100% { opacity:1; } 50% { opacity:.6; }
+    }
+
+    /* Popup image thumbnail */
+    .popup-img {
+      width: 100%; height: 110px;
+      object-fit: cover; display: block;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .popup-img-placeholder {
+      width: 100%; height: 0; display: none;
+    }
+
+    /* Connection status badge */
+    .conn-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: .68rem; font-weight: 700;
+      padding: 4px 10px; border-radius: 12px;
+      letter-spacing: .04em; text-transform: uppercase;
+    }
+    .conn-badge.ok   { background: #D1FAE5; color: #065F46; }
+    .conn-badge.fail { background: #FEE2E2; color: #991B1B; }
+    .conn-badge.checking { background: #FEF3C7; color: #92400E; }
+    .conn-badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .conn-badge.ok .dot   { background: #10B981; }
+    .conn-badge.fail .dot { background: #EF4444; animation: none; }
+    .conn-badge.checking .dot { background: #F59E0B; animation: pulse-dot 1s infinite; }
   </style>
 </head>
 <body>
@@ -664,11 +758,14 @@
     </div>
     <div class="header-titles">
       <h1>Mapa de Cobertura Wi-Fi</h1>
-      <p>Unidad de Ingeniería · Infocomunicaciones</p>
+      <p>Unidad de Ingeniería NOC · Infocomunicaciones</p>
     </div>
     <div class="header-badge">
       <span class="dot"></span>
       En línea
+    </div>
+    <div id="conn-badge" class="conn-badge checking" style="margin-left:8px;">
+      <span class="dot"></span><span id="conn-text">Conectando…</span>
     </div>
   </div>
 </header>
@@ -679,7 +776,7 @@
     <div class="breadcrumb">
       <span>Coopelesca</span>
       <span class="sep">›</span>
-      <span>Unidad de Ingenieria</span>
+      <span>NOC</span>
       <span class="sep">›</span>
       <span class="current">Análisis de Señal</span>
     </div>
@@ -865,6 +962,27 @@
           <option>Otro</option>
         </select>
       </div>
+
+      <div class="form-group">
+        <label class="form-label">Fotografía del sitio <span style="color:var(--gray-400);font-weight:400;text-transform:none">(opcional)</span></label>
+        <div id="dropzone" class="dropzone">
+          <input type="file" id="input-foto" accept="image/*" capture="environment" />
+          <div class="dropzone-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <div class="dropzone-text">Arrastrá una foto o <span>hacé clic para seleccionar</span></div>
+        </div>
+        <!-- Preview -->
+        <div id="img-preview-wrap" class="img-preview-wrap" style="display:none; margin-top:8px;">
+          <img id="img-preview" src="" alt="preview" />
+          <button type="button" class="img-preview-remove" id="btn-remove-img" title="Quitar foto">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="upload-progress" id="upload-progress">
+          <div class="upload-progress-bar" id="upload-progress-bar"></div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary btn-full" id="btn-cancel">Cancelar</button>
@@ -908,16 +1026,33 @@ let IMG_H = 1080;
 let db = null;
 let supabaseOk = false;
 
-try {
-  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  supabaseOk = true;
-  console.info('✅ Supabase conectado — proyecto: xdzncbgadawrqdguvxkp');
-} catch(e) {
-  console.error('❌ Supabase init failed:', e);
+function setConnBadge(status, text) {
+  const badge = document.getElementById('conn-badge');
+  const label = document.getElementById('conn-text');
+  if (!badge) return;
+  badge.className = `conn-badge ${status}`;
+  label.textContent = text;
 }
 
-/* Ocultar banner de config (credenciales ya están definidas) */
-document.getElementById('config-banner').style.display = 'none';
+(async () => {
+  try {
+    db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    /* Verificación real: ping a la tabla maps */
+    const { error } = await db.from('maps').select('id').limit(1);
+    if (error) throw error;
+    supabaseOk = true;
+    setConnBadge('ok', 'Supabase OK');
+    console.info('✅ Supabase conectado');
+  } catch(e) {
+    supabaseOk = false;
+    setConnBadge('fail', 'Sin conexión');
+    console.error('❌ Supabase error:', e.message || e);
+    showToast(`Supabase: ${e.message || 'Error de conexión'}`, 'error', 6000);
+  }
+  /* Ocultar banner de config (credenciales reales) */
+  const banner = document.getElementById('config-banner');
+  if (banner) banner.style.display = 'none';
+})();
 
 /* ══ Toast ═══════════════════════════════════════════════ */
 function showToast(msg, type = 'success', duration = 3000) {
@@ -1028,16 +1163,22 @@ function createMarker(pt) {
   const color = signalColor(pt.valor_senal);
 
   const marker = L.circleMarker([pt.lat, pt.lng], {
-    radius     : 10,
+    radius     : 11,
     fillColor  : color,
     color      : '#ffffff',
-    weight     : 2,
+    weight     : 2.5,
     opacity    : 1,
-    fillOpacity: 0.92,
+    fillOpacity: 0.93,
   }).addTo(map);
+
+  const imgHtml = pt.imagen_url
+    ? `<img class="popup-img" src="${escHtml(pt.imagen_url)}" alt="foto" loading="lazy"
+         onerror="this.style.display='none'" />`
+    : '';
 
   const popupHtml = `
     <div class="popup-content">
+      ${imgHtml}
       <div class="popup-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         ${escHtml(pt.nombre)}
@@ -1045,13 +1186,14 @@ function createMarker(pt) {
       <div class="popup-body">
         <div class="popup-row">
           <span class="popup-key">Señal</span>
-          <span class="popup-val popup-signal-val" style="color:${color}">${pt.valor_senal} dBm · ${signalLabel(pt.valor_senal)}</span>
+          <span class="popup-val" style="color:${color}">${pt.valor_senal} dBm · ${signalLabel(pt.valor_senal)}</span>
         </div>
         <div class="popup-row">
-          <span class="popup-key">Coordenadas</span>
+          <span class="popup-key">Coords</span>
           <span class="popup-val">${Math.round(pt.lng)}, ${Math.round(pt.lat)}</span>
         </div>
         ${pt.zona ? `<div class="popup-row"><span class="popup-key">Zona</span><span class="popup-val">${escHtml(pt.zona)}</span></div>` : ''}
+        ${pt.imagen_url ? `<div class="popup-row"><span class="popup-key">Foto</span><a class="popup-val" href="${escHtml(pt.imagen_url)}" target="_blank" style="color:var(--green-main);text-decoration:none;font-size:.7rem;">Ver completa ↗</a></div>` : ''}
       </div>
       <div class="popup-actions">
         <button class="popup-btn popup-btn-del" onclick="deletePoint(${JSON.stringify(pt.id)})">Eliminar</button>
@@ -1059,7 +1201,7 @@ function createMarker(pt) {
     </div>`;
 
   marker.bindPopup(popupHtml, {
-    maxWidth: 240,
+    maxWidth: 250,
     className: 'custom-popup',
     closeButton: false,
   });
@@ -1096,11 +1238,54 @@ async function loadPoints() {
   }
 }
 
+/* ══ UPLOAD IMAGE TO STORAGE ═════════════════════════════ */
+async function uploadImage(file) {
+  if (!file || !supabaseOk) return null;
+
+  /* Nombre único: map_id/timestamp_nombre.ext */
+  const ext  = file.name.split('.').pop().toLowerCase();
+  const safe = file.name.replace(/[^a-z0-9._-]/gi, '_').slice(0, 40);
+  const path = `${DEFAULT_MAP_ID}/${Date.now()}_${safe}`;
+
+  /* Mostrar barra de progreso */
+  const progWrap = document.getElementById('upload-progress');
+  const progBar  = document.getElementById('upload-progress-bar');
+  if (progWrap) { progWrap.style.display = 'block'; progBar.style.width = '30%'; }
+
+  try {
+    const { error: upErr } = await db.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+
+    if (upErr) throw upErr;
+    if (progBar) progBar.style.width = '80%';
+
+    const { data } = db.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    if (progBar) progBar.style.width = '100%';
+    setTimeout(() => { if (progWrap) progWrap.style.display = 'none'; }, 600);
+    return data.publicUrl;
+  } catch(e) {
+    console.error('Upload error:', e);
+    if (progWrap) progWrap.style.display = 'none';
+    showToast('Error al subir imagen: ' + (e.message || e), 'error');
+    return null;
+  }
+}
+
 /* ══ SAVE POINT ══════════════════════════════════════════ */
 async function savePoint(payload) {
   const btn = document.getElementById('btn-save');
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner"></span> Guardando…`;
+
+  /* Subir imagen si hay archivo seleccionado */
+  const fileInput = document.getElementById('input-foto');
+  const file = fileInput && fileInput.files[0];
+  if (file) {
+    btn.innerHTML = `<span class="spinner"></span> Subiendo foto…`;
+    const url = await uploadImage(file);
+    if (url) payload.imagen_url = url;
+  }
 
   if (supabaseOk) {
     try {
@@ -1195,6 +1380,26 @@ function updateSidebar() {
 }
 
 /* ══ MODAL LOGIC ═════════════════════════════════════════ */
+function clearImagePreview() {
+  const fi = document.getElementById('input-foto');
+  const pw = document.getElementById('img-preview-wrap');
+  const pi = document.getElementById('img-preview');
+  if (fi) fi.value = '';
+  if (pw) pw.style.display = 'none';
+  if (pi) pi.src = '';
+  const prog = document.getElementById('upload-progress');
+  if (prog) prog.style.display = 'none';
+}
+
+function showImagePreview(file) {
+  const pw = document.getElementById('img-preview-wrap');
+  const pi = document.getElementById('img-preview');
+  if (!pw || !pi || !file) return;
+  const reader = new FileReader();
+  reader.onload = e => { pi.src = e.target.result; pw.style.display = 'block'; };
+  reader.readAsDataURL(file);
+}
+
 function openModal(latlng) {
   const x = Math.round(latlng.lng);
   const y = Math.round(latlng.lat);
@@ -1203,6 +1408,7 @@ function openModal(latlng) {
   document.getElementById('input-nombre').value = '';
   document.getElementById('input-senal').value  = '-65';
   document.getElementById('input-zona').value   = '';
+  clearImagePreview();
   updateSlider(-65);
   document.getElementById('modal-overlay').classList.add('active');
   setTimeout(() => document.getElementById('input-nombre').focus(), 300);
@@ -1211,12 +1417,42 @@ function openModal(latlng) {
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
   state.pendingLL = null;
+  clearImagePreview();
 }
 
 document.getElementById('modal-close').addEventListener('click', closeModal);
 document.getElementById('btn-cancel').addEventListener('click', closeModal);
 document.getElementById('modal-overlay').addEventListener('click', (e) => {
   if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+/* ── Dropzone / file input ─────────────────────────────── */
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('input-foto');
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) showImagePreview(fileInput.files[0]);
+});
+
+document.getElementById('btn-remove-img').addEventListener('click', () => {
+  clearImagePreview();
+});
+
+dropzone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropzone.classList.add('drag-over');
+});
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    showImagePreview(file);
+  }
 });
 
 /* ── Slider sync ────────────────────────────────────────── */
@@ -1280,8 +1516,8 @@ document.getElementById('modal').addEventListener('keydown', (e) => {
 /* ══ EXPORT CSV ══════════════════════════════════════════ */
 document.getElementById('btn-export').addEventListener('click', () => {
   if (state.points.length === 0) { showToast('No hay puntos para exportar', 'warn'); return; }
-  const rows = [['id','nombre','lat','lng','valor_senal','zona']];
-  state.points.forEach(p => rows.push([p.id, p.nombre, p.lat, p.lng, p.valor_senal, p.zona || '']));
+  const rows = [['id','nombre','lat','lng','valor_senal','zona','imagen_url']];
+  state.points.forEach(p => rows.push([p.id, p.nombre, p.lat, p.lng, p.valor_senal, p.zona || '', p.imagen_url || '']));
   const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
