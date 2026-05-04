@@ -758,7 +758,7 @@
     </div>
     <div class="header-titles">
       <h1>Mapa de Cobertura Wi-Fi</h1>
-      <p>Unidad de Ingeniería NOC · Infocomunicaciones</p>
+      <p>Unidad de Ingeniería · Infocomunicaciones</p>
     </div>
     <div class="header-badge">
       <span class="dot"></span>
@@ -776,7 +776,7 @@
     <div class="breadcrumb">
       <span>Coopelesca</span>
       <span class="sep">›</span>
-      <span>NOC</span>
+      <span>Infocomunicaciones</span>
       <span class="sep">›</span>
       <span class="current">Análisis de Señal</span>
     </div>
@@ -1041,7 +1041,7 @@ function setConnBadge(status, text) {
     const { error } = await db.from('maps').select('id').limit(1);
     if (error) throw error;
     supabaseOk = true;
-    setConnBadge('ok', 'Supabase OK');
+    setConnBadge('ok', 'DataBase OK');
     console.info('✅ Supabase conectado');
   } catch(e) {
     supabaseOk = false;
