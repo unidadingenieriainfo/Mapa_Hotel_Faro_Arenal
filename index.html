@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa de Señal Wi-Fi — Coopelesca R.L.</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    /* ── CSS Variables ─────────────────────────────── */
+    :root {
+      --green-main:   #00843D;
+      --green-dark:   #005C2B;
+      --green-acc:    #7AB51D;
+      --green-light:  #E8F5E9;
+      --gold:         #FFCD00;
+      --gold-dark:    #E6B800;
+      --white:        #FFFFFF;
+      --gray-50:      #F9FAFB;
+      --gray-100:     #F3F4F6;
+      --gray-200:     #E5E7EB;
+      --gray-400:     #9CA3AF;
+      --gray-600:     #4B5563;
+      --gray-800:     #1F2937;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06);
+      --shadow-md:    0 4px 16px rgba(0,0,0,.12);
+      --shadow-lg:    0 10px 40px rgba(0,0,0,.18);
+      --shadow-xl:    0 20px 60px rgba(0,0,0,.25);
+      --radius:       10px;
+      --radius-lg:    16px;
+      --font:         'Plus Jakarta Sans', sans-serif;
+      --font-mono:    'DM Mono', monospace;
+      --transition:   .2s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Reset ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: var(--font); background: var(--gray-100); color: var(--gray-800); }
+
+    /* ── Header ────────────────────────────────────── */
+    header {
+      position: relative;
+      background: var(--green-main);
+      color: var(--white);
+      overflow: hidden;
+      z-index: 100;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 80% 50%, rgba(122,181,29,.35) 0%, transparent 60%),
+        radial-gradient(ellipse at 5% 80%, rgba(0,92,43,.6) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--gold), var(--green-acc), var(--gold));
+    }
+    .header-inner {
+      position: relative;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      height: 68px;
+    }
+    .logo-mark {
+      width: 44px;
+      height: 44px;
+      background: var(--white);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    .logo-mark svg { width: 28px; height: 28px; }
+    .header-titles { flex: 1; }
+    .header-titles h1 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      line-height: 1.2;
+    }
+    .header-titles p {
+      font-size: .72rem;
+      font-weight: 500;
+      opacity: .75;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .header-badge {
+      background: rgba(255,205,0,.18);
+      border: 1px solid rgba(255,205,0,.45);
+      color: var(--gold);
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .header-badge span.dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.4; transform:scale(.7); }
+    }
+
+    /* ── Sub-bar ─────────────────────────────────── */
+    .sub-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-200);
+      padding: 0 24px;
+      z-index: 99;
+    }
+    .sub-bar-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 44px;
+      gap: 12px;
+    }
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .78rem;
+      color: var(--gray-600);
+    }
+    .breadcrumb .sep { color: var(--gray-400); }
+    .breadcrumb .current { color: var(--green-main); font-weight: 600; }
+    .sub-bar-actions { display: flex; align-items: center; gap: 8px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--green-main);
+      color: var(--white);
+      box-shadow: 0 1px 4px rgba(0,132,61,.3);
+    }
+    .btn-primary:hover { background: var(--green-dark); box-shadow: 0 3px 10px rgba(0,132,61,.4); transform: translateY(-1px); }
+    .btn-secondary {
+      background: var(--gray-100);
+      color: var(--gray-800);
+      border: 1px solid var(--gray-200);
+    }
+    .btn-secondary:hover { background: var(--gray-200); }
+    .btn-gold {
+      background: var(--gold);
+      color: var(--gray-800);
+      box-shadow: 0 1px 4px rgba(255,205,0,.4);
+    }
+    .btn-gold:hover { background: var(--gold-dark); transform: translateY(-1px); }
+    .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* ── Layout ─────────────────────────────────── */
+    .app-layout {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 18px;
+      min-height: calc(100vh - 115px);
+    }
+    @media (max-width: 900px) {
+      .app-layout { grid-template-columns: 1fr; }
+      .sidebar { order: -1; }
+    }
+
+    /* ── Map Card ────────────────────────────────── */
+    .map-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--gray-200);
+    }
+    .map-card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--gray-100);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--gray-50);
+    }
+    .map-card-title {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--gray-800);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .map-card-title svg { color: var(--green-main); width: 15px; height: 15px; }
+    .map-hint {
+      font-size: .72rem;
+      color: var(--gray-400);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    #map-container {
+      flex: 1;
+      min-height: 520px;
+      position: relative;
+      cursor: crosshair;
+    }
+    #map { width: 100%; height: 100%; }
+
+    /* ── Sidebar ─────────────────────────────────── */
+    .sidebar { display: flex; flex-direction: column; gap: 14px; }
+
+    .widget {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--gray-200);
+      overflow: hidden;
+    }
+    .widget-header {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--gray-100);
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--gray-800);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--gray-50);
+    }
+    .widget-header svg { color: var(--green-main); width: 14px; height: 14px; }
+    .widget-body { padding: 14px 16px; }
+
+    /* Stats */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-item {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-100);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-value { font-size: 1.4rem; font-weight: 800; color: var(--green-main); line-height: 1; }
+    .stat-label { font-size: .68rem; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+
+    /* Signal scale legend */
+    .legend-items { display: flex; flex-direction: column; gap: 7px; }
+    .legend-row { display: flex; align-items: center; gap: 9px; font-size: .75rem; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .legend-label { color: var(--gray-600); flex: 1; }
+    .legend-range { font-family: var(--font-mono); font-size: .7rem; color: var(--gray-400); }
+
+    /* Recent points list */
+    .points-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+    .point-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-100);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .point-item:hover { background: var(--green-light); border-color: var(--green-main); }
+    .point-marker { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: .7rem; font-weight: 700; color: var(--white); }
+    .point-info { flex: 1; min-width: 0; }
+    .point-name { font-size: .78rem; font-weight: 600; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .point-coord { font-size: .65rem; font-family: var(--font-mono); color: var(--gray-400); margin-top: 1px; }
+    .point-signal { font-size: .72rem; font-weight: 700; font-family: var(--font-mono); }
+    .empty-state { text-align: center; padding: 20px; color: var(--gray-400); font-size: .78rem; }
+    .empty-state svg { width: 32px; height: 32px; margin-bottom: 8px; opacity: .3; }
+
+    /* ── Modal ─────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(15,20,30,.55);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 440px;
+      box-shadow: var(--shadow-xl);
+      overflow: hidden;
+      transform: translateY(20px) scale(.97);
+      transition: transform .28s cubic-bezier(.34,1.56,.64,1);
+    }
+    .modal-overlay.active .modal { transform: translateY(0) scale(1); }
+
+    .modal-header {
+      background: linear-gradient(135deg, var(--green-main), var(--green-dark));
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .modal-header::before {
+      content: '';
+      position: absolute;
+      top: -30px; right: -30px;
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: rgba(122,181,29,.25);
+    }
+    .modal-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--gold), transparent);
+    }
+    .modal-title {
+      color: var(--white);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      position: relative;
+    }
+    .modal-subtitle {
+      color: rgba(255,255,255,.7);
+      font-size: .72rem;
+      margin-top: 3px;
+      font-family: var(--font-mono);
+      position: relative;
+    }
+    .modal-close {
+      position: absolute;
+      top: 16px; right: 16px;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,.3);
+      background: rgba(255,255,255,.1);
+      color: var(--white);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+    }
+    .modal-close:hover { background: rgba(255,255,255,.25); }
+
+    .modal-body { padding: 22px 24px; }
+
+    .coords-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--green-light);
+      border: 1px solid rgba(0,132,61,.2);
+      border-radius: 20px;
+      padding: 6px 14px;
+      margin-bottom: 18px;
+      font-size: .72rem;
+      font-family: var(--font-mono);
+      color: var(--green-dark);
+      font-weight: 500;
+    }
+    .coords-pill svg { width: 12px; height: 12px; color: var(--green-main); }
+
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block;
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 6px;
+    }
+    .form-input, .form-select {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: .85rem;
+      color: var(--gray-800);
+      background: var(--white);
+      transition: all var(--transition);
+      outline: none;
+      appearance: none;
+    }
+    .form-input:focus, .form-select:focus {
+      border-color: var(--green-main);
+      box-shadow: 0 0 0 3px rgba(0,132,61,.12);
+    }
+    .form-input::placeholder { color: var(--gray-400); }
+
+    /* Signal slider */
+    .signal-wrapper { position: relative; }
+    .signal-display {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: .8rem;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      padding: 10px 0;
+      background: transparent;
+      border: none;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--green-main) var(--pct, 50%), var(--gray-200) var(--pct, 50%));
+      border: 1.5px solid var(--gray-200);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--white);
+      border: 2.5px solid var(--green-main);
+      box-shadow: 0 1px 4px rgba(0,132,61,.3);
+      margin-top: -7px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    input[type="range"]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(0,132,61,.2); }
+
+    .signal-bar-preview {
+      margin-top: 8px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--gray-100);
+      overflow: hidden;
+    }
+    .signal-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--green-acc), var(--green-main));
+      transition: width .2s, background .2s;
+    }
+
+    .modal-footer {
+      padding: 0 24px 22px;
+      display: flex;
+      gap: 10px;
+    }
+    .btn-full { flex: 1; justify-content: center; padding: 11px 16px; font-size: .85rem; }
+
+    /* ── Toast ──────────────────────────────────── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--gray-800);
+      color: var(--white);
+      border-radius: 10px;
+      box-shadow: var(--shadow-lg);
+      font-size: .82rem;
+      font-weight: 500;
+      max-width: 320px;
+      transform: translateX(120%);
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+    }
+    .toast.show { transform: translateX(0); }
+    .toast.success { background: var(--green-main); }
+    .toast.error   { background: #DC2626; }
+    .toast.warn    { background: #B45309; }
+    .toast-icon { width: 18px; height: 18px; flex-shrink: 0; }
+
+    /* ── Leaflet overrides ───────────────────────── */
+    .leaflet-container { background: var(--gray-100) !important; font-family: var(--font) !important; }
+    .leaflet-control-zoom a {
+      color: var(--green-main) !important;
+      font-weight: 700 !important;
+    }
+    .leaflet-control-zoom a:hover { background: var(--green-light) !important; }
+
+    /* Custom marker popup */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px !important;
+      box-shadow: var(--shadow-lg) !important;
+      border: 1px solid var(--gray-200) !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+    .leaflet-popup-content { margin: 0 !important; }
+    .leaflet-popup-tip-container { display: none; }
+
+    .popup-content {
+      min-width: 190px;
+    }
+    .popup-header {
+      background: linear-gradient(135deg, var(--green-main), var(--green-dark));
+      color: var(--white);
+      padding: 10px 14px;
+      font-size: .78rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .popup-body { padding: 10px 14px; }
+    .popup-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .popup-key { font-size: .7rem; color: var(--gray-400); font-weight: 600; text-transform: uppercase; }
+    .popup-val { font-size: .78rem; font-weight: 700; color: var(--gray-800); font-family: var(--font-mono); }
+    .popup-signal-val { color: var(--green-main); }
+    .popup-actions {
+      padding: 8px 14px 12px;
+      display: flex;
+      gap: 6px;
+    }
+    .popup-btn {
+      flex: 1;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: .7rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all .15s;
+    }
+    .popup-btn-del {
+      background: #FEE2E2;
+      color: #DC2626;
+    }
+    .popup-btn-del:hover { background: #DC2626; color: var(--white); }
+
+    /* ── Spinner ─────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Loading overlay ─────────────────────────── */
+    .map-loading {
+      position: absolute;
+      inset: 0;
+      background: var(--gray-100);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      z-index: 500;
+    }
+    .map-loading .spinner-lg {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(0,132,61,.2);
+      border-top-color: var(--green-main);
+      border-radius: 50%;
+      animation: spin .9s linear infinite;
+    }
+    .map-loading p { font-size: .8rem; color: var(--gray-400); font-weight: 500; }
+
+    /* ── Config banner ───────────────────────────── */
+    .config-banner {
+      background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+      border: 1px solid #F59E0B;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: .75rem;
+      color: #92400E;
+      margin-bottom: 14px;
+    }
+    .config-banner svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; color: #D97706; }
+    .config-banner strong { display: block; font-weight: 700; margin-bottom: 2px; }
+
+    /* Scrollbar */
+    .points-list::-webkit-scrollbar { width: 4px; }
+    .points-list::-webkit-scrollbar-track { background: transparent; }
+    .points-list::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════ -->
+<header>
+  <div class="header-inner">
+    <div class="logo-mark">
+      <!-- Coopelesca leaf icon -->
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 3C14 3 5 8 5 16C5 21.5 9 25 14 25C19 25 23 21.5 23 16C23 8 14 3 14 3Z" fill="#00843D"/>
+        <path d="M14 8C14 8 9 12 9 17C9 20.3 11.2 23 14 23C16.8 23 19 20.3 19 17C19 12 14 8 14 8Z" fill="#7AB51D"/>
+        <path d="M14 13C14 13 11 16 11 18.5C11 20.4 12.3 22 14 22C15.7 22 17 20.4 17 18.5C17 16 14 13 14 13Z" fill="#FFCD00"/>
+        <line x1="14" y1="13" x2="14" y2="25" stroke="#005C2B" stroke-width="1" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="header-titles">
+      <h1>Mapa de Cobertura Wi-Fi</h1>
+      <p>Unidad de Ingeniería NOC · Infocomunicaciones</p>
+    </div>
+    <div class="header-badge">
+      <span class="dot"></span>
+      En línea
+    </div>
+  </div>
+</header>
+
+<!-- ══ SUB-BAR ═══════════════════════════════════════════ -->
+<div class="sub-bar">
+  <div class="sub-bar-inner">
+    <div class="breadcrumb">
+      <span>Coopelesca</span>
+      <span class="sep">›</span>
+      <span>NOC</span>
+      <span class="sep">›</span>
+      <span class="current">Análisis de Señal</span>
+    </div>
+    <div class="sub-bar-actions">
+      <button class="btn btn-secondary" id="btn-export">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </button>
+      <button class="btn btn-gold" id="btn-clear-all">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/></svg>
+        Limpiar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP LAYOUT ═════════════════════════════════════════ -->
+<div class="app-layout">
+
+  <!-- Map Card -->
+  <div class="map-card">
+    <div class="map-card-header">
+      <div class="map-card-title">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        Plano: habitaciones_003.jpg
+      </div>
+      <div class="map-hint">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Clic en el plano para agregar punto
+      </div>
+    </div>
+    <div id="map-container">
+      <div class="map-loading" id="map-loading">
+        <div class="spinner-lg"></div>
+        <p>Cargando plano y datos…</p>
+      </div>
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Config notice -->
+    <div id="config-banner" class="config-banner" style="display:none;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        <strong>Configura Supabase</strong>
+        Edita las variables <code>SUPABASE_URL</code> y <code>SUPABASE_KEY</code> en el script para activar la persistencia.
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="widget">
+      <div class="widget-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Estadísticas
+      </div>
+      <div class="widget-body">
+        <div class="stat-grid">
+          <div class="stat-item">
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-label">Puntos</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="stat-avg">—</div>
+            <div class="stat-label">Promedio dBm</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="stat-min">—</div>
+            <div class="stat-label">Mín dBm</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="stat-max">—</div>
+            <div class="stat-label">Máx dBm</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="widget">
+      <div class="widget-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Escala de Señal
+      </div>
+      <div class="widget-body">
+        <div class="legend-items">
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#00843D"></div>
+            <span class="legend-label">Excelente</span>
+            <span class="legend-range">≥ −50 dBm</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#7AB51D"></div>
+            <span class="legend-label">Buena</span>
+            <span class="legend-range">−50 a −65</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#FFCD00"></div>
+            <span class="legend-label">Aceptable</span>
+            <span class="legend-range">−65 a −75</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#F97316"></div>
+            <span class="legend-label">Débil</span>
+            <span class="legend-range">−75 a −85</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#DC2626"></div>
+            <span class="legend-label">Sin señal</span>
+            <span class="legend-range">< −85 dBm</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Points list -->
+    <div class="widget" style="flex:1;">
+      <div class="widget-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Puntos registrados
+      </div>
+      <div class="widget-body" style="padding:10px 12px;">
+        <div class="points-list" id="points-list">
+          <div class="empty-state" id="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <div>Haz clic en el plano<br>para agregar puntos</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODAL ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title">Registrar Punto de Señal</div>
+      <div class="modal-subtitle" id="modal-coords-title">X: — · Y: —</div>
+      <button class="modal-close" id="modal-close" aria-label="Cerrar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="coords-pill" id="coords-pill">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m14.95-6.95l-2.12 2.12m-5.66 5.66l-2.12 2.12m0-9.9l2.12 2.12m5.66 5.66l2.12 2.12"/></svg>
+        <span id="coords-display">X: 0 · Y: 0</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-nombre">Nombre del punto</label>
+        <input type="text" id="input-nombre" class="form-input" placeholder="Ej: Sala de reuniones A" maxlength="80" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-senal">Nivel de señal (dBm)</label>
+        <input type="number" id="input-senal" class="form-input" placeholder="-65" min="-100" max="0" step="1" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ajuste rápido</label>
+        <div class="signal-wrapper">
+          <input type="range" id="slider-senal" min="-100" max="0" value="-65" style="--pct:35%" />
+        </div>
+        <div class="signal-bar-preview">
+          <div class="signal-bar-fill" id="signal-bar-fill" style="width:35%"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-zona">Zona / Ambiente</label>
+        <select id="input-zona" class="form-select">
+          <option value="">— Seleccionar —</option>
+          <option>Sala de reuniones</option>
+          <option>Oficina abierta</option>
+          <option>Pasillo</option>
+          <option>Recepción</option>
+          <option>Bodega</option>
+          <option>Exterior</option>
+          <option>Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-full" id="btn-cancel">Cancelar</button>
+      <button class="btn btn-primary btn-full" id="btn-save">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Guardar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST CONTAINER ════════════════════════════════════ -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ══ SCRIPTS ════════════════════════════════════════════ -->
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════════════
+   ⚙  CONFIGURACIÓN — js/config.js (inlined)
+   ══════════════════════════════════════════════════════════ */
+const SUPABASE_URL     = 'https://xdzncbgadawrqdguvxkp.supabase.co';
+const SUPABASE_KEY     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhdem5jYmdhZGF3cnFkZ3V2eGtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTM4NjUsImV4cCI6MjA5MzA2OTg2NX0.kr-V3A7IaM7OJzf8cxSmqIuxqbOU3se0l6V3r-d8Gn0';
+const DEFAULT_MAP_ID   = 'd4e5f2e4-b57f-4bac-bbf4-6347e041d4f8';
+const STORAGE_BUCKET   = 'wifi-points';
+
+const TABLE_NAME   = 'puntos_mapa';
+const FLOOR_IMAGE  = 'habitaciones_003.jpg';   // Imagen local del plano
+
+/* Dimensiones reales de la imagen (ajustar según tu JPG) */
+const IMG_W = 1200;   // px ancho
+const IMG_H = 800;    // px alto
+
+/* ══ Init Supabase ═══════════════════════════════════════ */
+let db = null;
+let supabaseOk = false;
+
+try {
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  supabaseOk = true;
+  console.info('✅ Supabase conectado — proyecto: xdzncbgadawrqdguvxkp');
+} catch(e) {
+  console.error('❌ Supabase init failed:', e);
+}
+
+/* Ocultar banner de config (credenciales ya están definidas) */
+document.getElementById('config-banner').style.display = 'none';
+
+/* ══ Toast ═══════════════════════════════════════════════ */
+function showToast(msg, type = 'success', duration = 3000) {
+  const icons = {
+    success: `<svg class="toast-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
+    error  : `<svg class="toast-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    warn   : `<svg class="toast-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = (icons[type] || '') + `<span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  requestAnimationFrame(() => { el.classList.add('show'); });
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 400);
+  }, duration);
+}
+
+/* ══ State ═══════════════════════════════════════════════ */
+const state = {
+  points   : [],   // { id, nombre, lat, lng, valor_senal, zona? }
+  markers  : {},   // id -> L.CircleMarker
+  pendingLL: null, // L.LatLng pending for modal
+};
+
+/* ══ Signal color helper ══════════════════════════════════ */
+function signalColor(dbm) {
+  if (dbm >= -50) return '#00843D';
+  if (dbm >= -65) return '#7AB51D';
+  if (dbm >= -75) return '#FFCD00';
+  if (dbm >= -85) return '#F97316';
+  return '#DC2626';
+}
+
+function signalLabel(dbm) {
+  if (dbm >= -50) return 'Excelente';
+  if (dbm >= -65) return 'Buena';
+  if (dbm >= -75) return 'Aceptable';
+  if (dbm >= -85) return 'Débil';
+  return 'Sin señal';
+}
+
+/* ══ LEAFLET MAP SETUP ═══════════════════════════════════ */
+const bounds = [[0, 0], [IMG_H, IMG_W]];
+
+const map = L.map('map', {
+  crs           : L.CRS.Simple,
+  minZoom       : -3,
+  maxZoom       : 3,
+  zoomSnap      : 0.25,
+  attributionControl: false,
+});
+
+const imageLayer = L.imageOverlay(FLOOR_IMAGE, bounds).addTo(map);
+map.fitBounds(bounds, { padding: [10, 10] });
+
+imageLayer.on('load', () => {
+  document.getElementById('map-loading').style.display = 'none';
+  loadPoints();
+});
+imageLayer.on('error', () => {
+  document.getElementById('map-loading').innerHTML =
+    `<div style="color:#DC2626;font-size:.85rem;text-align:center;padding:20px;">
+      <strong>No se encontró la imagen</strong><br>
+      Asegúrate de que <code>${FLOOR_IMAGE}</code><br>está en la misma carpeta que este archivo.
+    </div>`;
+});
+
+/* Timeout fallback */
+setTimeout(() => {
+  if (document.getElementById('map-loading').style.display !== 'none') {
+    document.getElementById('map-loading').style.display = 'none';
+    loadPoints();
+  }
+}, 3000);
+
+/* ── Map click handler ─────────────────────────────────── */
+map.on('click', (e) => {
+  state.pendingLL = e.latlng;
+  openModal(e.latlng);
+});
+
+/* ══ MARKER HELPERS ═══════════════════════════════════════ */
+function createMarker(pt) {
+  const color = signalColor(pt.valor_senal);
+
+  const marker = L.circleMarker([pt.lat, pt.lng], {
+    radius     : 10,
+    fillColor  : color,
+    color      : '#ffffff',
+    weight     : 2,
+    opacity    : 1,
+    fillOpacity: 0.92,
+  }).addTo(map);
+
+  const popupHtml = `
+    <div class="popup-content">
+      <div class="popup-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        ${escHtml(pt.nombre)}
+      </div>
+      <div class="popup-body">
+        <div class="popup-row">
+          <span class="popup-key">Señal</span>
+          <span class="popup-val popup-signal-val" style="color:${color}">${pt.valor_senal} dBm · ${signalLabel(pt.valor_senal)}</span>
+        </div>
+        <div class="popup-row">
+          <span class="popup-key">Coordenadas</span>
+          <span class="popup-val">${Math.round(pt.lng)}, ${Math.round(pt.lat)}</span>
+        </div>
+        ${pt.zona ? `<div class="popup-row"><span class="popup-key">Zona</span><span class="popup-val">${escHtml(pt.zona)}</span></div>` : ''}
+      </div>
+      <div class="popup-actions">
+        <button class="popup-btn popup-btn-del" onclick="deletePoint(${JSON.stringify(pt.id)})">Eliminar</button>
+      </div>
+    </div>`;
+
+  marker.bindPopup(popupHtml, {
+    maxWidth: 240,
+    className: 'custom-popup',
+    closeButton: false,
+  });
+
+  state.markers[pt.id] = marker;
+  return marker;
+}
+
+function removeMarker(id) {
+  if (state.markers[id]) {
+    map.removeLayer(state.markers[id]);
+    delete state.markers[id];
+  }
+}
+
+/* ══ LOAD POINTS FROM SUPABASE ════════════════════════════ */
+async function loadPoints() {
+  if (!supabaseOk) { updateSidebar(); return; }
+  try {
+    const { data, error } = await db
+      .from(TABLE_NAME)
+      .select('*')
+      .eq('map_id', DEFAULT_MAP_ID)
+      .order('id');
+    if (error) throw error;
+    state.points = data || [];
+    state.points.forEach(pt => createMarker(pt));
+    updateSidebar();
+    showToast(`${state.points.length} puntos cargados`, 'success', 2000);
+  } catch(e) {
+    console.error(e);
+    showToast('Error al cargar datos de Supabase', 'error');
+    updateSidebar();
+  }
+}
+
+/* ══ SAVE POINT ══════════════════════════════════════════ */
+async function savePoint(payload) {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Guardando…`;
+
+  if (supabaseOk) {
+    try {
+      const { data, error } = await db.from(TABLE_NAME).insert([payload]).select().single();
+      if (error) throw error;
+      state.points.push(data);
+      createMarker(data);
+      updateSidebar();
+      closeModal();
+      showToast('Punto guardado correctamente ✓', 'success');
+    } catch(e) {
+      console.error(e);
+      showToast('Error al guardar: ' + (e.message || 'Supabase error'), 'error');
+    }
+  } else {
+    /* Local demo mode */
+    const fakeId = Date.now();
+    const pt = { id: fakeId, ...payload };
+    state.points.push(pt);
+    createMarker(pt);
+    updateSidebar();
+    closeModal();
+    showToast('Punto agregado (modo demo, sin Supabase)', 'warn', 4000);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar`;
+}
+
+/* ══ DELETE POINT ════════════════════════════════════════ */
+window.deletePoint = async function(id) {
+  if (!confirm('¿Eliminar este punto?')) return;
+  if (supabaseOk) {
+    const { error } = await db.from(TABLE_NAME).delete().eq('id', id);
+    if (error) { showToast('Error al eliminar', 'error'); return; }
+  }
+  removeMarker(id);
+  state.points = state.points.filter(p => p.id !== id);
+  updateSidebar();
+  map.closePopup();
+  showToast('Punto eliminado', 'warn', 2000);
+};
+
+/* ══ UPDATE SIDEBAR ══════════════════════════════════════ */
+function updateSidebar() {
+  const pts = state.points;
+  document.getElementById('stat-total').textContent = pts.length;
+
+  if (pts.length > 0) {
+    const vals = pts.map(p => Number(p.valor_senal));
+    document.getElementById('stat-avg').textContent = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+    document.getElementById('stat-min').textContent  = Math.min(...vals);
+    document.getElementById('stat-max').textContent  = Math.max(...vals);
+  } else {
+    ['stat-avg','stat-min','stat-max'].forEach(id => document.getElementById(id).textContent = '—');
+  }
+
+  const list  = document.getElementById('points-list');
+  const empty = document.getElementById('empty-state');
+
+  if (pts.length === 0) {
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  /* Rebuild list */
+  const existing = list.querySelectorAll('.point-item');
+  existing.forEach(el => el.remove());
+
+  [...pts].reverse().forEach(pt => {
+    const color = signalColor(pt.valor_senal);
+    const item  = document.createElement('div');
+    item.className = 'point-item';
+    item.innerHTML = `
+      <div class="point-marker" style="background:${color}">${signalLabel(pt.valor_senal)[0]}</div>
+      <div class="point-info">
+        <div class="point-name">${escHtml(pt.nombre)}</div>
+        <div class="point-coord">${Math.round(pt.lng)}, ${Math.round(pt.lat)}</div>
+      </div>
+      <div class="point-signal" style="color:${color}">${pt.valor_senal} dBm</div>
+    `;
+    item.addEventListener('click', () => {
+      const m = state.markers[pt.id];
+      if (m) {
+        map.flyTo([pt.lat, pt.lng], 1, { duration: .6 });
+        setTimeout(() => m.openPopup(), 700);
+      }
+    });
+    list.appendChild(item);
+  });
+}
+
+/* ══ MODAL LOGIC ═════════════════════════════════════════ */
+function openModal(latlng) {
+  const x = Math.round(latlng.lng);
+  const y = Math.round(latlng.lat);
+  document.getElementById('modal-coords-title').textContent = `X: ${x} · Y: ${y}`;
+  document.getElementById('coords-display').textContent     = `X: ${x} · Y: ${y}`;
+  document.getElementById('input-nombre').value = '';
+  document.getElementById('input-senal').value  = '-65';
+  document.getElementById('input-zona').value   = '';
+  updateSlider(-65);
+  document.getElementById('modal-overlay').classList.add('active');
+  setTimeout(() => document.getElementById('input-nombre').focus(), 300);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+  state.pendingLL = null;
+}
+
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+/* ── Slider sync ────────────────────────────────────────── */
+function updateSlider(val) {
+  const pct = Math.round(((val - (-100)) / 100) * 100);
+  const slider = document.getElementById('slider-senal');
+  slider.value = val;
+  slider.style.setProperty('--pct', pct + '%');
+  document.getElementById('signal-bar-fill').style.width = pct + '%';
+  const c = signalColor(val);
+  document.getElementById('signal-bar-fill').style.background =
+    `linear-gradient(90deg, ${c}99, ${c})`;
+}
+
+document.getElementById('slider-senal').addEventListener('input', (e) => {
+  const v = Number(e.target.value);
+  document.getElementById('input-senal').value = v;
+  updateSlider(v);
+});
+
+document.getElementById('input-senal').addEventListener('input', (e) => {
+  const v = Math.max(-100, Math.min(0, Number(e.target.value) || -65));
+  updateSlider(v);
+});
+
+/* ── Save button ─────────────────────────────────────────── */
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const nombre = document.getElementById('input-nombre').value.trim();
+  const senal  = Number(document.getElementById('input-senal').value);
+  const zona   = document.getElementById('input-zona').value;
+
+  if (!nombre) {
+    showToast('Ingresa un nombre para el punto', 'warn');
+    document.getElementById('input-nombre').focus();
+    return;
+  }
+  if (isNaN(senal) || senal < -120 || senal > 0) {
+    showToast('Valor de señal inválido (−120 a 0 dBm)', 'warn');
+    return;
+  }
+  if (!state.pendingLL) return;
+
+  await savePoint({
+    map_id      : DEFAULT_MAP_ID,
+    nombre      : nombre,
+    lat         : state.pendingLL.lat,
+    lng         : state.pendingLL.lng,
+    valor_senal : senal,
+    zona        : zona || null,
+  });
+});
+
+/* Enter key on form */
+document.getElementById('modal').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    document.getElementById('btn-save').click();
+  }
+  if (e.key === 'Escape') closeModal();
+});
+
+/* ══ EXPORT CSV ══════════════════════════════════════════ */
+document.getElementById('btn-export').addEventListener('click', () => {
+  if (state.points.length === 0) { showToast('No hay puntos para exportar', 'warn'); return; }
+  const rows = [['id','nombre','lat','lng','valor_senal','zona']];
+  state.points.forEach(p => rows.push([p.id, p.nombre, p.lat, p.lng, p.valor_senal, p.zona || '']));
+  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: 'puntos_wifi.csv' });
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exportado correctamente', 'success');
+});
+
+/* ══ CLEAR ALL ═══════════════════════════════════════════ */
+document.getElementById('btn-clear-all').addEventListener('click', async () => {
+  if (state.points.length === 0) { showToast('No hay puntos para limpiar', 'warn'); return; }
+  if (!confirm(`¿Eliminar todos los ${state.points.length} puntos? Esta acción no se puede deshacer.`)) return;
+  if (supabaseOk) {
+    const ids = state.points.map(p => p.id);
+    const { error } = await db.from(TABLE_NAME).delete().eq('map_id', DEFAULT_MAP_ID).in('id', ids);
+    if (error) { showToast('Error al limpiar: ' + error.message, 'error'); return; }
+  }
+  Object.keys(state.markers).forEach(id => removeMarker(id));
+  state.points = [];
+  updateSidebar();
+  showToast('Todos los puntos eliminados', 'warn');
+});
+
+/* ══ Utilities ═══════════════════════════════════════════ */
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
