@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa de Señal Wi-Fi — Coopelesca R.L.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root {
+      --green-main:  #00843D; --green-dark: #005C2B; --green-acc: #7AB51D;
+      --green-light: #E8F5E9; --gold: #FFCD00; --gold-dark: #E6B800;
+      --white: #FFFFFF; --gray-50: #F9FAFB; --gray-100: #F3F4F6;
+      --gray-200: #E5E7EB; --gray-400: #9CA3AF; --gray-600: #4B5563;
+      --gray-800: #1F2937; --shadow-sm: 0 1px 3px rgba(0,0,0,.10);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.12); --shadow-lg: 0 10px 40px rgba(0,0,0,.18);
+      --shadow-xl: 0 20px 60px rgba(0,0,0,.25); --radius: 10px; --radius-lg: 16px;
+      --font: 'Plus Jakarta Sans', sans-serif; --font-mono: 'DM Mono', monospace;
+      --transition: .2s cubic-bezier(.4,0,.2,1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: var(--font); background: var(--gray-100); color: var(--gray-800); }
+
+    /* ══ ROLE BAR ══ */
+    .role-bar {
+      background: linear-gradient(90deg,#FFFBEB,#FEF3C7);
+      border-bottom: 1px solid #F6D860;
+      padding: 6px 24px; font-size: .75rem; font-weight: 600;
+      color: #7D5A00; text-align: center;
+    }
+    .role-bar.hidden { display: none; }
+    .role-bar a { color: var(--green-main); font-weight: 700; cursor: pointer; text-decoration: underline; }
+
+    /* ══ HEADER ══ */
+    header { position: relative; background: var(--green-main); color: var(--white); overflow: hidden; z-index: 100; }
+    header::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 80% 50%,rgba(122,181,29,.35) 0%,transparent 60%),
+                  radial-gradient(ellipse at 5% 80%,rgba(0,92,43,.6) 0%,transparent 50%);
+    }
+    header::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg,var(--gold),var(--green-acc),var(--gold)); }
+    .header-inner { position: relative; max-width: 1400px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 14px; height: 68px; }
+    .logo-mark { width: 44px; height: 44px; background: var(--white); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+    .logo-mark svg { width: 28px; height: 28px; }
+    .header-titles { flex: 1; }
+    .header-titles h1 { font-size: 1.1rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; }
+    .header-titles p  { font-size: .72rem; font-weight: 500; opacity: .75; letter-spacing: .06em; text-transform: uppercase; }
+    .header-badge { background: rgba(255,205,0,.18); border: 1px solid rgba(255,205,0,.45); color: var(--gold); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .header-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); animation: pulse-dot 2s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+    .conn-badge { display: inline-flex; align-items: center; gap: 5px; font-size: .68rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; letter-spacing: .04em; text-transform: uppercase; }
+    .conn-badge.ok       { background: #D1FAE5; color: #065F46; }
+    .conn-badge.fail     { background: #FEE2E2; color: #991B1B; }
+    .conn-badge.checking { background: #FEF3C7; color: #92400E; }
+    .conn-badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .conn-badge.ok .dot       { background: #10B981; }
+    .conn-badge.fail .dot     { background: #EF4444; }
+    .conn-badge.checking .dot { background: #F59E0B; animation: pulse-dot 1s infinite; }
+
+    /* Auth header elements */
+    .btn-header-login { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.15); border: 1.5px solid rgba(255,255,255,.35); color: var(--white); border-radius: 8px; padding: 6px 13px; font-family: var(--font); font-size: .75rem; font-weight: 700; cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .btn-header-login:hover { background: rgba(255,255,255,.28); }
+    .btn-header-login svg { width: 13px; height: 13px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); border-radius: 20px; padding: 5px 12px 5px 6px; }
+    .user-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--gold); color: var(--gray-800); font-size: .7rem; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .user-info { line-height: 1.25; }
+    .user-name  { font-size: .72rem; font-weight: 700; color: var(--white); }
+    .user-role  { font-size: .62rem; font-weight: 600; color: var(--gold); text-transform: uppercase; letter-spacing: .04em; }
+    .btn-logout { display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); color: var(--white); border-radius: 8px; padding: 5px 11px; font-family: var(--font); font-size: .72rem; font-weight: 700; cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .btn-logout:hover { background: rgba(220,38,38,.5); border-color: transparent; }
+    .btn-logout svg { width: 12px; height: 12px; }
+
+    /* ══ SUB-BAR ══ */
+    .sub-bar { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: 0 24px; z-index: 99; }
+    .sub-bar-inner { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 44px; gap: 12px; }
+    .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--gray-600); }
+    .breadcrumb .sep { color: var(--gray-400); }
+    .breadcrumb .current { color: var(--green-main); font-weight: 600; }
+    .sub-bar-actions { display: flex; align-items: center; gap: 8px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: none; border-radius: 8px; font-family: var(--font); font-size: .78rem; font-weight: 600; cursor: pointer; transition: all var(--transition); white-space: nowrap; }
+    .btn-primary { background: var(--green-main); color: var(--white); box-shadow: 0 1px 4px rgba(0,132,61,.3); }
+    .btn-primary:hover { background: var(--green-dark); transform: translateY(-1px); }
+    .btn-secondary { background: var(--gray-100); color: var(--gray-800); border: 1px solid var(--gray-200); }
+    .btn-secondary:hover { background: var(--gray-200); }
+    .btn-gold { background: var(--gold); color: var(--gray-800); }
+    .btn-gold:hover { background: var(--gold-dark); transform: translateY(-1px); }
+    .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* Editor-only elements hidden for public */
+    body.public-mode .editor-only { display: none !important; }
+    body.public-mode #map-container { cursor: default !important; }
+
+    /* ══ LAYOUT ══ */
+    .app-layout { max-width: 1400px; margin: 0 auto; padding: 20px 24px; display: grid; grid-template-columns: 1fr 300px; gap: 18px; min-height: calc(100vh - 125px); }
+    @media (max-width: 900px) { .app-layout { grid-template-columns: 1fr; } .sidebar { order: -1; } }
+
+    /* ══ MAP CARD ══ */
+    .map-card { background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--gray-200); }
+    .map-card-header { padding: 14px 18px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; justify-content: space-between; background: var(--gray-50); }
+    .map-card-title { font-size: .82rem; font-weight: 700; color: var(--gray-800); display: flex; align-items: center; gap: 7px; }
+    .map-card-title svg { color: var(--green-main); width: 15px; height: 15px; }
+    .map-hint { font-size: .72rem; color: var(--gray-400); display: flex; align-items: center; gap: 5px; }
+    #map-container { flex: 1; min-height: 520px; position: relative; cursor: crosshair; }
+    #map { width: 100%; height: 100%; }
+
+    /* ══ SIDEBAR ══ */
+    .sidebar { display: flex; flex-direction: column; gap: 14px; }
+    .widget { background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-200); overflow: hidden; }
+    .widget-header { padding: 13px 16px; border-bottom: 1px solid var(--gray-100); font-size: .78rem; font-weight: 700; color: var(--gray-800); display: flex; align-items: center; gap: 7px; background: var(--gray-50); }
+    .widget-header svg { color: var(--green-main); width: 14px; height: 14px; }
+    .widget-body { padding: 14px 16px; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-item { background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 8px; padding: 12px; text-align: center; }
+    .stat-value { font-size: 1.4rem; font-weight: 800; color: var(--green-main); line-height: 1; }
+    .stat-label { font-size: .68rem; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+    .legend-items { display: flex; flex-direction: column; gap: 7px; }
+    .legend-row { display: flex; align-items: center; gap: 9px; font-size: .75rem; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .legend-label { color: var(--gray-600); flex: 1; }
+    .legend-range { font-family: var(--font-mono); font-size: .7rem; color: var(--gray-400); }
+    .points-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+    .points-list::-webkit-scrollbar { width: 4px; }
+    .points-list::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 2px; }
+    .point-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 8px; cursor: pointer; transition: all var(--transition); }
+    .point-item:hover { background: var(--green-light); border-color: var(--green-main); }
+    .point-marker { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: .7rem; font-weight: 700; color: var(--white); }
+    .point-info { flex: 1; min-width: 0; }
+    .point-name { font-size: .78rem; font-weight: 600; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .point-coord { font-size: .65rem; font-family: var(--font-mono); color: var(--gray-400); margin-top: 1px; }
+    .point-signal { font-size: .72rem; font-weight: 700; font-family: var(--font-mono); }
+    .empty-state { text-align: center; padding: 20px; color: var(--gray-400); font-size: .78rem; }
+    .empty-state svg { width: 32px; height: 32px; margin-bottom: 8px; opacity: .3; display: block; margin: 0 auto 8px; }
+
+    /* ══ MODAL BASE ══ */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15,20,30,.55); backdrop-filter: blur(6px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 440px; box-shadow: var(--shadow-xl); overflow: hidden; transform: translateY(20px) scale(.97); transition: transform .28s cubic-bezier(.34,1.56,.64,1); }
+    .modal-overlay.active .modal { transform: translateY(0) scale(1); }
+    .modal-header { background: linear-gradient(135deg,var(--green-main),var(--green-dark)); padding: 20px 24px; position: relative; overflow: hidden; }
+    .modal-header::before { content: ''; position: absolute; top: -30px; right: -30px; width: 100px; height: 100px; border-radius: 50%; background: rgba(122,181,29,.25); }
+    .modal-header::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg,var(--gold),transparent); }
+    .modal-title { color: var(--white); font-size: 1rem; font-weight: 800; letter-spacing: -.02em; position: relative; }
+    .modal-subtitle { color: rgba(255,255,255,.7); font-size: .72rem; margin-top: 3px; font-family: var(--font-mono); position: relative; }
+    .modal-close { position: absolute; top: 16px; right: 16px; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: var(--white); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--transition); }
+    .modal-close:hover { background: rgba(255,255,255,.25); }
+    .modal-body { padding: 22px 24px; }
+    .modal-footer { padding: 0 24px 22px; display: flex; gap: 10px; }
+    .btn-full { flex: 1; justify-content: center; padding: 11px 16px; font-size: .85rem; }
+
+    /* ══ LOGIN MODAL EXTRAS ══ */
+    .login-error { background: #FEE2E2; border: 1px solid #FECACA; color: #991B1B; border-radius: 8px; padding: 10px 13px; font-size: .78rem; font-weight: 500; margin-bottom: 14px; display: none; align-items: center; gap: 8px; }
+    .login-error.show { display: flex; }
+    .login-error svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .login-domain-hint { font-size: .7rem; color: var(--gray-400); margin-top: 4px; font-family: var(--font-mono); }
+    .login-domain-hint strong { color: var(--green-main); }
+
+    /* ══ FORM ELEMENTS ══ */
+    .coords-pill { display: inline-flex; align-items: center; gap: 8px; background: var(--green-light); border: 1px solid rgba(0,132,61,.2); border-radius: 20px; padding: 6px 14px; margin-bottom: 18px; font-size: .72rem; font-family: var(--font-mono); color: var(--green-dark); font-weight: 500; }
+    .coords-pill svg { width: 12px; height: 12px; color: var(--green-main); }
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: .75rem; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+    .form-input, .form-select { width: 100%; padding: 10px 13px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-family: var(--font); font-size: .85rem; color: var(--gray-800); background: var(--white); transition: all var(--transition); outline: none; appearance: none; }
+    .form-input:focus, .form-select:focus { border-color: var(--green-main); box-shadow: 0 0 0 3px rgba(0,132,61,.12); }
+    .form-input::placeholder { color: var(--gray-400); }
+
+    input[type="range"] { width: 100%; height: 6px; border-radius: 3px; outline: none; cursor: pointer; -webkit-appearance: none; appearance: none; padding: 10px 0; background: transparent; border: none; }
+    input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg,var(--green-main) var(--pct,35%),var(--gray-200) var(--pct,35%)); border: 1.5px solid var(--gray-200); }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--white); border: 2.5px solid var(--green-main); box-shadow: 0 1px 4px rgba(0,132,61,.3); margin-top: -7px; cursor: pointer; transition: all .15s; }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    .signal-bar-preview { margin-top: 8px; height: 6px; border-radius: 3px; background: var(--gray-100); overflow: hidden; }
+    .signal-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg,var(--green-acc),var(--green-main)); transition: width .2s, background .2s; }
+
+    /* ══ DROPZONE ══ */
+    .dropzone { border: 2px dashed var(--gray-200); border-radius: 10px; padding: 16px 12px; text-align: center; cursor: pointer; transition: all var(--transition); position: relative; background: var(--gray-50); }
+    .dropzone:hover, .dropzone.drag-over { border-color: var(--green-main); background: var(--green-light); }
+    .dropzone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .dropzone-icon { color: var(--gray-400); margin-bottom: 6px; }
+    .dropzone-icon svg { width: 24px; height: 24px; }
+    .dropzone-text { font-size: .75rem; color: var(--gray-400); font-weight: 500; }
+    .dropzone-text span { color: var(--green-main); font-weight: 700; }
+    .img-preview-wrap { position: relative; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--gray-200); background: var(--gray-100); }
+    .img-preview-wrap img { width: 100%; max-height: 160px; object-fit: cover; display: block; }
+    .img-preview-remove { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; background: rgba(0,0,0,.55); border: none; border-radius: 50%; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .img-preview-remove:hover { background: #DC2626; }
+    .img-preview-remove svg { width: 12px; height: 12px; }
+    .upload-progress { height: 4px; background: var(--gray-100); border-radius: 2px; overflow: hidden; margin-top: 8px; display: none; }
+    .upload-progress-bar { height: 100%; background: linear-gradient(90deg,var(--green-acc),var(--green-main)); border-radius: 2px; width: 0%; transition: width .3s ease; animation: progress-pulse 1.5s ease-in-out infinite; }
+    @keyframes progress-pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    /* ══ POPUP ══ */
+    .leaflet-container { background: var(--gray-100) !important; font-family: var(--font) !important; }
+    .leaflet-control-zoom a { color: var(--green-main) !important; font-weight: 700 !important; }
+    .leaflet-control-zoom a:hover { background: var(--green-light) !important; }
+    .leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: var(--shadow-lg) !important; border: 1px solid var(--gray-200) !important; padding: 0 !important; overflow: hidden !important; }
+    .leaflet-popup-content { margin: 0 !important; }
+    .leaflet-popup-tip-container { display: none; }
+    .popup-content { min-width: 200px; }
+    .popup-img { width: 100%; height: 110px; object-fit: cover; display: block; border-bottom: 1px solid var(--gray-100); }
+    .popup-header { background: linear-gradient(135deg,var(--green-main),var(--green-dark)); color: var(--white); padding: 10px 14px; font-size: .78rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .popup-body { padding: 10px 14px; }
+    .popup-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .popup-key { font-size: .7rem; color: var(--gray-400); font-weight: 600; text-transform: uppercase; }
+    .popup-val { font-size: .78rem; font-weight: 700; color: var(--gray-800); font-family: var(--font-mono); }
+    .popup-actions { padding: 8px 14px 12px; display: flex; gap: 6px; }
+    .popup-btn { flex: 1; padding: 6px 10px; border-radius: 6px; font-size: .7rem; font-weight: 700; cursor: pointer; border: none; transition: all .15s; }
+    .popup-btn-del { background: #FEE2E2; color: #DC2626; }
+    .popup-btn-del:hover { background: #DC2626; color: var(--white); }
+
+    /* ══ SPINNER / LOADING ══ */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: var(--white); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .map-loading { position: absolute; inset: 0; background: var(--gray-100); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 500; }
+    .map-loading .spinner-lg { width: 36px; height: 36px; border: 3px solid rgba(0,132,61,.2); border-top-color: var(--green-main); border-radius: 50%; animation: spin .9s linear infinite; }
+    .map-loading p { font-size: .8rem; color: var(--gray-400); font-weight: 500; }
+
+    /* ══ TOAST ══ */
+    .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9000; display: flex; flex-direction: column; gap: 8px; }
+    .toast { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--gray-800); color: var(--white); border-radius: 10px; box-shadow: var(--shadow-lg); font-size: .82rem; font-weight: 500; max-width: 320px; transform: translateX(120%); transition: transform .35s cubic-bezier(.34,1.56,.64,1); }
+    .toast.show { transform: translateX(0); }
+    .toast.success { background: var(--green-main); }
+    .toast.error   { background: #DC2626; }
+    .toast.warn    { background: #B45309; }
+    .toast-icon { width: 18px; height: 18px; flex-shrink: 0; }
+  </style>
+</head>
+<body class="public-mode">
+
+<!-- ══ ROLE BAR ═══════════════════════════════════════════ -->
+<div class="role-bar" id="role-bar">
+  👁 Modo visualización —
+  <a id="role-bar-login">Iniciá sesión</a>
+  para agregar o editar puntos de señal
+</div>
+
+<!-- ══ HEADER ══════════════════════════════════════════════ -->
+<header>
+  <div class="header-inner">
+    <div class="logo-mark">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 3C14 3 5 8 5 16C5 21.5 9 25 14 25C19 25 23 21.5 23 16C23 8 14 3 14 3Z" fill="#00843D"/>
+        <path d="M14 8C14 8 9 12 9 17C9 20.3 11.2 23 14 23C16.8 23 19 20.3 19 17C19 12 14 8 14 8Z" fill="#7AB51D"/>
+        <path d="M14 13C14 13 11 16 11 18.5C11 20.4 12.3 22 14 22C15.7 22 17 20.4 17 18.5C17 16 14 13 14 13Z" fill="#FFCD00"/>
+        <line x1="14" y1="13" x2="14" y2="25" stroke="#005C2B" stroke-width="1" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="header-titles">
+      <h1>Mapa de Lectura de señal Hotel Faro Arenal</h1>
+      <p>Unidad de Ingeniería · Infocomunicaciones</p>
+    </div>
+    <div class="header-badge"><span class="dot"></span>En línea</div>
+    <div id="conn-badge" class="conn-badge checking">
+      <span class="dot"></span><span id="conn-text">Conectando…</span>
+    </div>
+
+    <!-- Sin sesión -->
+    <button class="btn-header-login" id="btn-open-login">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Ingresar
+    </button>
+
+    <!-- Con sesión (oculto al inicio) -->
+    <div id="user-pill" class="user-pill" style="display:none;">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">—</div>
+        <div class="user-role">✏ Editor</div>
+      </div>
+    </div>
+    <button id="btn-logout" class="btn-logout" style="display:none;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Salir
+    </button>
+  </div>
+</header>
+
+<!-- ══ SUB-BAR ══════════════════════════════════════════════ -->
+<div class="sub-bar">
+  <div class="sub-bar-inner">
+    <div class="breadcrumb">
+      <span>Coopelesca</span><span class="sep">›</span>
+      <span>Infocomunicaciones</span><span class="sep">›</span>
+      <span class="current">Análisis de Señal</span>
+    </div>
+    <div class="sub-bar-actions">
+      <button class="btn btn-secondary editor-only" id="btn-export">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </button>
+      <button class="btn btn-gold editor-only" id="btn-clear-all">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/></svg>
+        Limpiar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP LAYOUT ═════════════════════════════════════════════ -->
+<div class="app-layout">
+  <div class="map-card">
+    <div class="map-card-header">
+      <div class="map-card-title">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        Plano: habitaciones_003.jpg
+      </div>
+      <div class="map-hint editor-only">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Clic en el plano para agregar punto
+      </div>
+    </div>
+    <div id="map-container">
+      <div class="map-loading" id="map-loading">
+        <div class="spinner-lg"></div>
+        <p>Cargando plano y datos…</p>
+      </div>
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <!-- Stats -->
+    <div class="widget">
+      <div class="widget-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Estadísticas
+      </div>
+      <div class="widget-body">
+        <div class="stat-grid">
+          <div class="stat-item"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Puntos</div></div>
+          <div class="stat-item"><div class="stat-value" id="stat-avg">—</div><div class="stat-label">Promedio dBm</div></div>
+          <div class="stat-item"><div class="stat-value" id="stat-min">—</div><div class="stat-label">Mín dBm</div></div>
+          <div class="stat-item"><div class="stat-value" id="stat-max">—</div><div class="stat-label">Máx dBm</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="widget">
+      <div class="widget-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Escala de Señal
+      </div>
+      <div class="widget-body">
+        <div class="legend-items">
+          <div class="legend-row"><div class="legend-dot" style="background:#00843D"></div><span class="legend-label">Excelente</span><span class="legend-range">≥ −50 dBm</span></div>
+          <div class="legend-row"><div class="legend-dot" style="background:#7AB51D"></div><span class="legend-label">Buena</span><span class="legend-range">−50 a −65</span></div>
+          <div class="legend-row"><div class="legend-dot" style="background:#FFCD00"></div><span class="legend-label">Aceptable</span><span class="legend-range">−65 a −75</span></div>
+          <div class="legend-row"><div class="legend-dot" style="background:#F97316"></div><span class="legend-label">Débil</span><span class="legend-range">−75 a −85</span></div>
+          <div class="legend-row"><div class="legend-dot" style="background:#DC2626"></div><span class="legend-label">Sin señal</span><span class="legend-range">< −85 dBm</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Points list -->
+    <div class="widget" style="flex:1;">
+      <div class="widget-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Puntos registrados
+      </div>
+      <div class="widget-body" style="padding:10px 12px;">
+        <div class="points-list" id="points-list">
+          <div class="empty-state" id="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <div>Haz clic en el plano<br>para agregar puntos</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOGIN MODAL ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="login-modal-overlay">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">Acceso Editor</div>
+      <div class="modal-subtitle">Sistema de medición de señal</div>
+      <button class="modal-close" id="login-modal-close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="login-error" id="login-error">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <span id="login-error-msg">Usuario o contraseña incorrectos</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Usuario</label>
+        <input type="text" id="login-user" class="form-input" placeholder="ocastillo" autocomplete="username" />
+        <div class="login-domain-hint">Se usará <strong id="login-domain-preview">ocastillo@coopelesca.co.cr</strong></div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Contraseña</label>
+        <input type="password" id="login-password" class="form-input" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-full" id="btn-login-cancel">Cancelar</button>
+      <button class="btn btn-primary btn-full" id="btn-do-login">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Ingresar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD-POINT MODAL ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title">Registrar Punto de Señal</div>
+      <div class="modal-subtitle" id="modal-coords-title">X: — · Y: —</div>
+      <button class="modal-close" id="modal-close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="coords-pill">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3m10-10h-3M5 12H2"/></svg>
+        <span id="coords-display">X: 0 · Y: 0</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre del punto</label>
+        <input type="text" id="input-nombre" class="form-input" placeholder="Ej: Habitación 14" maxlength="80" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nivel de señal (dBm)</label>
+        <input type="number" id="input-senal" class="form-input" placeholder="-65" min="-100" max="0" step="1" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ajuste rápido</label>
+        <input type="range" id="slider-senal" min="-100" max="0" value="-65" style="--pct:35%" />
+        <div class="signal-bar-preview"><div class="signal-bar-fill" id="signal-bar-fill" style="width:35%"></div></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Zona / Ambiente</label>
+        <select id="input-zona" class="form-select">
+          <option value="">— Seleccionar —</option>
+          <option>Habitación</option>
+          <option>Recepción</option>
+          <option>Restaurante</option>
+          <option>Piscina / Exterior</option>
+          <option>Pasillo</option>
+          <option>Bodega</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fotografía del sitio <span style="color:var(--gray-400);font-weight:400;text-transform:none">(opcional)</span></label>
+        <div id="dropzone" class="dropzone">
+          <input type="file" id="input-foto" accept="image/*" capture="environment" />
+          <div class="dropzone-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+          <div class="dropzone-text">Arrastrá una foto o <span>hacé clic para seleccionar</span></div>
+        </div>
+        <div id="img-preview-wrap" class="img-preview-wrap" style="display:none;margin-top:8px;">
+          <img id="img-preview" src="" alt="preview" />
+          <button type="button" class="img-preview-remove" id="btn-remove-img">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="upload-progress" id="upload-progress"><div class="upload-progress-bar" id="upload-progress-bar"></div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-full" id="btn-cancel">Cancelar</button>
+      <button class="btn btn-primary btn-full" id="btn-save">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Guardar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST ════════════════════════════════════════════════════ -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+'use strict';
+
+/* ══ CONFIGURACIÓN ══════════════════════════════════════════ */
+const SUPABASE_URL   = 'https://xdzncbgadawrqdguvxkp.supabase.co';
+const SUPABASE_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkem5jYmdhZGF3cnFkZ3V2eGtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTM4NjUsImV4cCI6MjA5MzA2OTg2NX0.kr-V3A7IaM7OJzf8cxSmqIuxqbOU3se0l6V3r-d8Gn0';
+const DEFAULT_MAP_ID = 'd4e5f2e4-b57f-4bac-bbf4-6347e041d4f8';
+const STORAGE_BUCKET = 'wifi-point-photos';
+const TABLE_NAME     = 'puntos_mapa';
+const FLOOR_IMAGE    = 'assets/img/habitaciones_003.jpg';
+const EMAIL_DOMAIN   = '@coopelesca.co.cr'; // Dominio que se agrega al usuario
+
+let IMG_W = 1983, IMG_H = 506;
+
+/* ══ SUPABASE + AUTH INIT ══════════════════════════════════ */
+let db = null, supabaseOk = false;
+let currentUser = null, isEditor = false;
+
+function setConnBadge(s, t) {
+  const b = document.getElementById('conn-badge');
+  const l = document.getElementById('conn-text');
+  if (b) { b.className = 'conn-badge ' + s; l.textContent = t; }
+}
+
+/* ── UI: activar modo editor ────────────────────────────── */
+function activateEditor(user) {
+  currentUser = user; isEditor = true;
+  const username = (user.email || '').replace(EMAIL_DOMAIN, '');
+  document.body.classList.remove('public-mode');
+  document.getElementById('role-bar').classList.add('hidden');
+  document.getElementById('btn-open-login').style.display  = 'none';
+  document.getElementById('user-pill').style.display       = 'flex';
+  document.getElementById('btn-logout').style.display      = 'flex';
+  document.getElementById('user-name').textContent         = username;
+  document.getElementById('user-avatar').textContent       = username.slice(0,2).toUpperCase();
+  if (map) map.getContainer().style.cursor = 'crosshair';
+}
+
+/* ── UI: volver a modo público ──────────────────────────── */
+function deactivateEditor() {
+  currentUser = null; isEditor = false;
+  document.body.classList.add('public-mode');
+  document.getElementById('role-bar').classList.remove('hidden');
+  document.getElementById('btn-open-login').style.display  = 'flex';
+  document.getElementById('user-pill').style.display       = 'none';
+  document.getElementById('btn-logout').style.display      = 'none';
+  if (map) map.getContainer().style.cursor = 'default';
+}
+
+/* ── Init ─────────────────────────────────────────────────── */
+/* Promesa que se resuelve cuando Supabase está listo */
+let supabaseReady;
+const supabaseReadyPromise = new Promise(res => { supabaseReady = res; });
+
+(async () => {
+  try {
+    db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { error } = await db.from('maps').select('id').limit(1);
+    if (error) throw error;
+    supabaseOk = true;
+    setConnBadge('ok', 'DataBase OK');
+  } catch(e) {
+    supabaseOk = false;
+    setConnBadge('fail', 'Sin conexión');
+    showToast('Supabase: ' + (e.message || 'Error de conexión'), 'error', 6000);
+  }
+
+  /* Restaurar sesión existente */
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    if (session?.user) {
+      const role = session.user.user_metadata?.role;
+      if (role === 'editor') activateEditor(session.user);
+      else await db.auth.signOut();
+    }
+  } catch(e) { console.warn('Session restore error:', e); }
+
+  /* Supabase listo — desbloquear loadPoints */
+  supabaseReady();
+
+  /* Escuchar cambios de auth */
+  db.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      const role = session.user.user_metadata?.role;
+      if (role === 'editor') {
+        activateEditor(session.user);
+        showToast('Bienvenido/a, ' + session.user.email.replace(EMAIL_DOMAIN,''), 'success');
+      } else {
+        db.auth.signOut();
+        showToast('Este usuario no tiene permisos de edición', 'warn', 4000);
+      }
+    }
+    if (event === 'SIGNED_OUT') {
+      deactivateEditor();
+      showToast('Sesión cerrada', 'warn', 2000);
+    }
+  });
+})();
+
+/* ══ TOAST ══════════════════════════════════════════════════ */
+function showToast(msg, type = 'success', duration = 3000) {
+  const icons = {
+    success: '<svg class="toast-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+    error  : '<svg class="toast-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warn   : '<svg class="toast-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  };
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = (icons[type] || '') + '<span>' + msg + '</span>';
+  document.getElementById('toast-container').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, duration);
+}
+
+/* ══ STATE + HELPERS ══════════════════════════════════════ */
+const state = { points: [], markers: {}, pendingLL: null };
+
+function signalColor(d) {
+  if (d >= -50) return '#00843D';
+  if (d >= -65) return '#7AB51D';
+  if (d >= -75) return '#FFCD00';
+  if (d >= -85) return '#F97316';
+  return '#DC2626';
+}
+function signalLabel(d) {
+  if (d >= -50) return 'Excelente';
+  if (d >= -65) return 'Buena';
+  if (d >= -75) return 'Aceptable';
+  if (d >= -85) return 'Débil';
+  return 'Sin señal';
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ══ LEAFLET ══════════════════════════════════════════════ */
+let map, imageLayer;
+
+const _img = new Image();
+_img.onload = () => { IMG_W = _img.naturalWidth; IMG_H = _img.naturalHeight; initMap(); };
+_img.onerror = () => initMap();
+_img.src = FLOOR_IMAGE;
+
+function initMap() {
+  const bounds = [[0,0],[IMG_H,IMG_W]];
+  map = L.map('map', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomSnap: 0.25, attributionControl: false });
+  imageLayer = L.imageOverlay(FLOOR_IMAGE, bounds).addTo(map);
+  map.fitBounds(bounds, { padding: [10,10] });
+
+  imageLayer.on('load', () => {
+    document.getElementById('map-loading').style.display = 'none';
+    loadPoints();
+  });
+  imageLayer.on('error', () => {
+    document.getElementById('map-loading').innerHTML =
+      '<div style="color:#DC2626;font-size:.85rem;text-align:center;padding:20px;"><strong>No se encontró la imagen</strong><br>Ruta: <code>' + FLOOR_IMAGE + '</code></div>';
+  });
+  setTimeout(() => {
+    const l = document.getElementById('map-loading');
+    if (l && l.style.display !== 'none') { l.style.display = 'none'; loadPoints(); }
+  }, 4000);
+
+  map.on('click', (e) => {
+    if (!isEditor) { showToast('Iniciá sesión para agregar puntos', 'warn', 3000); return; }
+    state.pendingLL = e.latlng;
+    openModal(e.latlng);
+  });
+}
+
+/* ══ MARKERS ══════════════════════════════════════════════ */
+function createMarker(pt) {
+  const color = signalColor(pt.valor_senal);
+  const marker = L.circleMarker([pt.lat,pt.lng], { radius:11, fillColor:color, color:'#fff', weight:2.5, fillOpacity:.93 }).addTo(map);
+
+  const imgHtml = pt.imagen_url
+    ? '<img class="popup-img" src="' + escHtml(pt.imagen_url) + '" alt="foto" loading="lazy" onerror="this.style.display=\'none\'" />'
+    : '';
+  const delBtn = isEditor
+    ? '<div class="popup-actions"><button class="popup-btn popup-btn-del" onclick="deletePoint(' + JSON.stringify(pt.id) + ')">Eliminar</button></div>'
+    : '';
+
+  marker.bindPopup(
+    '<div class="popup-content">' + imgHtml +
+    '<div class="popup-header"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' + escHtml(pt.nombre) + '</div>' +
+    '<div class="popup-body">' +
+      '<div class="popup-row"><span class="popup-key">Señal</span><span class="popup-val" style="color:' + color + '">' + pt.valor_senal + ' dBm · ' + signalLabel(pt.valor_senal) + '</span></div>' +
+      '<div class="popup-row"><span class="popup-key">Coords</span><span class="popup-val">' + Math.round(pt.lng) + ', ' + Math.round(pt.lat) + '</span></div>' +
+      (pt.zona ? '<div class="popup-row"><span class="popup-key">Zona</span><span class="popup-val">' + escHtml(pt.zona) + '</span></div>' : '') +
+      (pt.imagen_url ? '<div class="popup-row"><span class="popup-key">Foto</span><a class="popup-val" href="' + escHtml(pt.imagen_url) + '" target="_blank" style="color:var(--green-main);text-decoration:none;font-size:.7rem;">Ver completa ↗</a></div>' : '') +
+    '</div>' + delBtn + '</div>',
+    { maxWidth:250, className:'custom-popup', closeButton:false }
+  );
+  state.markers[pt.id] = marker;
+  return marker;
+}
+
+function removeMarker(id) {
+  if (state.markers[id]) { map.removeLayer(state.markers[id]); delete state.markers[id]; }
+}
+
+/* ══ LOAD POINTS ══════════════════════════════════════════ */
+async function loadPoints() {
+  /* Esperar a que Supabase esté listo antes de consultar */
+  await supabaseReadyPromise;
+  if (!supabaseOk) { updateSidebar(); return; }
+  try {
+    const { data, error } = await db
+      .from(TABLE_NAME)
+      .select('*')
+      .eq('map_id', DEFAULT_MAP_ID)
+      .order('id');
+    if (error) throw error;
+    state.points = data || [];
+    state.points.forEach(pt => createMarker(pt));
+    updateSidebar();
+    if (state.points.length > 0)
+      showToast(state.points.length + ' puntos cargados', 'success', 2000);
+  } catch(e) {
+    console.error('loadPoints error:', e);
+    showToast('Error al cargar datos: ' + (e.message || e), 'error');
+    updateSidebar();
+  }
+}
+
+/* ══ UPLOAD IMAGE ════════════════════════════════════════ */
+async function uploadImage(file) {
+  if (!file || !supabaseOk) return null;
+  const safe = file.name.replace(/[^a-z0-9._-]/gi,'_').slice(0,40);
+  const path = DEFAULT_MAP_ID + '/' + Date.now() + '_' + safe;
+  const pw = document.getElementById('upload-progress');
+  const pb = document.getElementById('upload-progress-bar');
+  if (pw) { pw.style.display = 'block'; pb.style.width = '30%'; }
+  try {
+    const { error } = await db.storage.from(STORAGE_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw error;
+    pb.style.width = '80%';
+    const { data } = db.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    pb.style.width = '100%';
+    setTimeout(() => { pw.style.display = 'none'; }, 600);
+    return data.publicUrl;
+  } catch(e) {
+    if (pw) pw.style.display = 'none';
+    showToast('Error al subir imagen: ' + (e.message || e), 'error');
+    return null;
+  }
+}
+
+/* ══ SAVE POINT ══════════════════════════════════════════ */
+async function savePoint(payload) {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Guardando…';
+  const fi = document.getElementById('input-foto');
+  const file = fi && fi.files[0];
+  if (file) {
+    btn.innerHTML = '<span class="spinner"></span> Subiendo foto…';
+    const url = await uploadImage(file);
+    if (url) payload.imagen_url = url;
+  }
+  try {
+    const { data, error } = await db.from(TABLE_NAME).insert([payload]).select().single();
+    if (error) throw error;
+    state.points.push(data);
+    createMarker(data);
+    updateSidebar();
+    closeModal();
+    showToast('Punto guardado ✓', 'success');
+  } catch(e) {
+    showToast('Error al guardar: ' + (e.message || 'Supabase error'), 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar';
+}
+
+/* ══ DELETE POINT ════════════════════════════════════════ */
+window.deletePoint = async function(id) {
+  if (!isEditor) { showToast('Sin permisos de edición', 'warn'); return; }
+  if (!confirm('¿Eliminar este punto?')) return;
+  const { error } = await db.from(TABLE_NAME).delete().eq('id', id);
+  if (error) { showToast('Error al eliminar', 'error'); return; }
+  removeMarker(id);
+  state.points = state.points.filter(p => p.id !== id);
+  updateSidebar();
+  map.closePopup();
+  showToast('Punto eliminado', 'warn', 2000);
+};
+
+/* ══ SIDEBAR ════════════════════════════════════════════ */
+function updateSidebar() {
+  const pts = state.points;
+  document.getElementById('stat-total').textContent = pts.length;
+  if (pts.length > 0) {
+    const vals = pts.map(p => Number(p.valor_senal));
+    document.getElementById('stat-avg').textContent = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+    document.getElementById('stat-min').textContent = Math.min(...vals);
+    document.getElementById('stat-max').textContent = Math.max(...vals);
+  } else {
+    ['stat-avg','stat-min','stat-max'].forEach(id => document.getElementById(id).textContent = '—');
+  }
+  const list = document.getElementById('points-list');
+  const empty = document.getElementById('empty-state');
+  list.querySelectorAll('.point-item').forEach(el => el.remove());
+  if (pts.length === 0) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  [...pts].reverse().forEach(pt => {
+    const color = signalColor(pt.valor_senal);
+    const item = document.createElement('div');
+    item.className = 'point-item';
+    item.innerHTML =
+      '<div class="point-marker" style="background:' + color + '">' + signalLabel(pt.valor_senal)[0] + '</div>' +
+      '<div class="point-info"><div class="point-name">' + escHtml(pt.nombre) + '</div><div class="point-coord">' + Math.round(pt.lng) + ', ' + Math.round(pt.lat) + '</div></div>' +
+      '<div class="point-signal" style="color:' + color + '">' + pt.valor_senal + ' dBm</div>';
+    item.addEventListener('click', () => {
+      const m = state.markers[pt.id];
+      if (m) { map.flyTo([pt.lat, pt.lng], 1, { duration: .6 }); setTimeout(() => m.openPopup(), 700); }
+    });
+    list.appendChild(item);
+  });
+}
+
+/* ══ LOGIN MODAL ════════════════════════════════════════ */
+function openLoginModal() {
+  document.getElementById('login-error').classList.remove('show');
+  document.getElementById('login-user').value     = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-domain-preview').textContent = '—' + EMAIL_DOMAIN;
+  document.getElementById('login-modal-overlay').classList.add('active');
+  setTimeout(() => document.getElementById('login-user').focus(), 300);
+}
+function closeLoginModal() {
+  document.getElementById('login-modal-overlay').classList.remove('active');
+}
+
+/* Preview del email mientras escribe el usuario */
+document.getElementById('login-user').addEventListener('input', function() {
+  const v = this.value.trim() || '—';
+  document.getElementById('login-domain-preview').textContent = v + EMAIL_DOMAIN;
+});
+
+document.getElementById('btn-open-login').addEventListener('click', openLoginModal);
+document.getElementById('role-bar-login').addEventListener('click', (e) => { e.preventDefault(); openLoginModal(); });
+document.getElementById('login-modal-close').addEventListener('click', closeLoginModal);
+document.getElementById('btn-login-cancel').addEventListener('click', closeLoginModal);
+document.getElementById('login-modal-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('login-modal-overlay')) closeLoginModal();
+});
+
+async function doLogin() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn      = document.getElementById('btn-do-login');
+  const errBox   = document.getElementById('login-error');
+  const errMsg   = document.getElementById('login-error-msg');
+
+  if (!username || !password) {
+    errMsg.textContent = 'Completá el usuario y la contraseña';
+    errBox.classList.add('show'); return;
+  }
+  errBox.classList.remove('show');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Verificando…';
+
+  /* Construir email completo */
+  const email = username.includes('@') ? username : username + EMAIL_DOMAIN;
+
+  const { error } = await db.auth.signInWithPassword({ email, password });
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Ingresar';
+
+  if (error) {
+    errMsg.textContent = (error.message === 'Invalid login credentials')
+      ? 'Usuario o contraseña incorrectos' : error.message;
+    errBox.classList.add('show'); return;
+  }
+  closeLoginModal();
+}
+
+document.getElementById('btn-do-login').addEventListener('click', doLogin);
+document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('login-user').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-password').focus(); });
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  if (!confirm('¿Cerrar sesión de editor?')) return;
+  await db.auth.signOut();
+});
+
+/* ══ ADD-POINT MODAL ════════════════════════════════════ */
+function clearImagePreview() {
+  const fi = document.getElementById('input-foto');
+  const pw = document.getElementById('img-preview-wrap');
+  const pi = document.getElementById('img-preview');
+  if (fi) fi.value = '';
+  if (pw) pw.style.display = 'none';
+  if (pi) pi.src = '';
+  const prog = document.getElementById('upload-progress');
+  if (prog) prog.style.display = 'none';
+}
+function showImagePreview(file) {
+  const pw = document.getElementById('img-preview-wrap');
+  const pi = document.getElementById('img-preview');
+  if (!pw || !pi || !file) return;
+  const reader = new FileReader();
+  reader.onload = e => { pi.src = e.target.result; pw.style.display = 'block'; };
+  reader.readAsDataURL(file);
+}
+function openModal(latlng) {
+  const x = Math.round(latlng.lng), y = Math.round(latlng.lat);
+  document.getElementById('modal-coords-title').textContent = 'X: ' + x + ' · Y: ' + y;
+  document.getElementById('coords-display').textContent     = 'X: ' + x + ' · Y: ' + y;
+  document.getElementById('input-nombre').value = '';
+  document.getElementById('input-senal').value  = '-65';
+  document.getElementById('input-zona').value   = '';
+  clearImagePreview(); updateSlider(-65);
+  document.getElementById('modal-overlay').classList.add('active');
+  setTimeout(() => document.getElementById('input-nombre').focus(), 300);
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+  state.pendingLL = null; clearImagePreview();
+}
+
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+/* Dropzone */
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('input-foto');
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) showImagePreview(fileInput.files[0]); });
+document.getElementById('btn-remove-img').addEventListener('click', clearImagePreview);
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropzone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) {
+    const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files;
+    showImagePreview(file);
+  }
+});
+
+/* Slider */
+function updateSlider(val) {
+  const pct = Math.round(((val + 100) / 100) * 100);
+  const sl = document.getElementById('slider-senal');
+  sl.value = val; sl.style.setProperty('--pct', pct + '%');
+  document.getElementById('signal-bar-fill').style.width = pct + '%';
+  const c = signalColor(val);
+  document.getElementById('signal-bar-fill').style.background = 'linear-gradient(90deg,' + c + '99,' + c + ')';
+}
+document.getElementById('slider-senal').addEventListener('input', (e) => {
+  const v = Number(e.target.value);
+  document.getElementById('input-senal').value = v; updateSlider(v);
+});
+document.getElementById('input-senal').addEventListener('input', (e) => {
+  const v = Math.max(-100, Math.min(0, Number(e.target.value) || -65)); updateSlider(v);
+});
+
+/* Save */
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const nombre = document.getElementById('input-nombre').value.trim();
+  const senal  = Number(document.getElementById('input-senal').value);
+  const zona   = document.getElementById('input-zona').value;
+  if (!nombre) { showToast('Ingresá un nombre para el punto', 'warn'); document.getElementById('input-nombre').focus(); return; }
+  if (isNaN(senal) || senal < -120 || senal > 0) { showToast('Valor de señal inválido', 'warn'); return; }
+  if (!state.pendingLL) return;
+  await savePoint({ map_id: DEFAULT_MAP_ID, nombre, lat: state.pendingLL.lat, lng: state.pendingLL.lng, valor_senal: senal, zona: zona || null });
+});
+document.getElementById('modal').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) document.getElementById('btn-save').click();
+  if (e.key === 'Escape') closeModal();
+});
+
+/* ══ EXPORT CSV ════════════════════════════════════════ */
+document.getElementById('btn-export').addEventListener('click', () => {
+  if (state.points.length === 0) { showToast('No hay puntos para exportar', 'warn'); return; }
+  const rows = [['id','nombre','lat','lng','valor_senal','zona','imagen_url']];
+  state.points.forEach(p => rows.push([p.id, p.nombre, p.lat, p.lng, p.valor_senal, p.zona||'', p.imagen_url||'']));
+  const csv  = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: 'puntos_wifi.csv' });
+  a.click(); URL.revokeObjectURL(url);
+  showToast('CSV exportado', 'success');
+});
+
+/* ══ CLEAR ALL ════════════════════════════════════════ */
+document.getElementById('btn-clear-all').addEventListener('click', async () => {
+  if (state.points.length === 0) { showToast('No hay puntos para limpiar', 'warn'); return; }
+  if (!confirm('¿Eliminar todos los ' + state.points.length + ' puntos? Esta acción no se puede deshacer.')) return;
+  const ids = state.points.map(p => p.id);
+  const { error } = await db.from(TABLE_NAME).delete().eq('map_id', DEFAULT_MAP_ID).in('id', ids);
+  if (error) { showToast('Error al limpiar: ' + error.message, 'error'); return; }
+  Object.keys(state.markers).forEach(id => removeMarker(id));
+  state.points = [];
+  updateSidebar();
+  showToast('Todos los puntos eliminados', 'warn');
+});
+</script>
+</body>
+</html>
